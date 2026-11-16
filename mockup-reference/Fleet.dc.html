@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Fleet in the Fog — your fleet</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;1,9..144,500&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button{font-family:inherit}
+</style>
+</helmet>
+<div style="width: 390px; height: 960px; box-sizing: border-box; background: #E3E6DF; font-family: Inter, system-ui, sans-serif; color: #2F4F4F; display: flex; flex-direction: column; gap: 12px; padding: 8px 14px 16px">
+
+<div style="display: flex; align-items: center; justify-content: space-between; height: 56px; padding-left: 6px">
+<div>
+<h1 style="margin: 0; font-family: Fraunces, Georgia, serif; font-weight: 500; font-size: 24px">Your fleet</h1>
+<div style="font-size: 13px; color: #3E5551; margin-top: 2px">{{countLabel}}</div>
+</div>
+<button onClick="{{close}}" aria-label="Close your fleet" style="width: 44px; height: 44px; border: 0; background: transparent; color: #2F4F4F; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"></line><line x1="18" y1="6" x2="6" y2="18"></line></svg></button>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; background: #D6DAD2; border-radius: 14px; padding: 4px" role="group" aria-label="Fleet view">
+<button onClick="{{viewHarbor}}" aria-pressed="{{harborPressed}}" style="{{harborTab}}">Harbor</button>
+<button onClick="{{viewAll}}" aria-pressed="{{allPressed}}" style="{{allTab}}">Show all</button>
+</div>
+
+<sc-if value="{{showAll}}" hint-placeholder-val="{{false}}">
+<div style="flex: 1 1 0; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-bottom: 4px">
+<sc-for list="{{list}}" as="r" hint-placeholder-count="6">
+<div style="display: flex; align-items: center; gap: 12px; background: #F4EFE2; border-radius: 14px; padding: 10px 12px; box-shadow: 0 1px 0 rgba(47,79,79,0.08)">
+<div style="{{r.iconStyle}}">
+<dc-import name="Boat" kind="{{r.kind}}" scale="1.3" hint-size="57px,52px"></dc-import>
+</div>
+<div style="min-width: 0">
+<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px">
+<span style="font-family: Fraunces, Georgia, serif; font-size: 18px; line-height: 1.2">{{r.name}}</span>
+<span style="font-size: 12px; color: #3E5551; white-space: nowrap">{{r.how}}</span>
+</div>
+<div style="font-size: 13px; line-height: 1.35; color: #3E5551; margin-top: 2px">{{r.note}}</div>
+<div style="{{r.statusStyle}}">{{r.status}}</div>
+</div>
+</div>
+</sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{showHarbor}}" hint-placeholder-val="{{true}}">
+<div style="position: relative; height: 430px; background: #D7E3E1; border-radius: 18px; overflow: hidden; box-shadow: inset 0 0 0 1px rgba(47,79,79,0.10)">
+<svg style="position: absolute; left: 0; top: 0" width="362" height="430" viewBox="0 0 362 484" preserveAspectRatio="none" fill="none" stroke="#BFD1CF" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M20 84 q8 -5 16 0 t16 0"></path><path d="M210 92 q8 -5 16 0 t16 0"></path><path d="M300 180 q8 -5 16 0 t16 0"></path><path d="M30 290 q8 -5 16 0 t16 0"></path><path d="M150 380 q8 -5 16 0 t16 0"></path><path d="M310 372 q8 -5 16 0 t16 0"></path><path d="M120 186 q8 -5 16 0 t16 0"></path><path d="M240 470 q8 -5 16 0 t16 0"></path></svg>
+<sc-for list="{{boats}}" as="b" hint-placeholder-count="18">
+<button onClick="{{b.pick}}" aria-label="{{b.aria}}" style="{{b.style}}">
+<dc-import name="Boat" kind="{{b.kind}}" scale="1.4" hint-size="62px,56px"></dc-import>
+</button>
+</sc-for>
+</div>
+
+<div style="background: #F4EFE2; border-radius: 16px; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 1px 0 rgba(47,79,79,0.08)">
+<div style="display: flex; align-items: center; gap: 14px">
+<div style="{{bigStyle}}">
+<dc-import name="Boat" kind="{{sel.kind}}" scale="1.7" hint-size="75px,68px"></dc-import>
+</div>
+<div>
+<div style="font-family: Fraunces, Georgia, serif; font-size: 21px; line-height: 1.15">{{sel.name}}</div>
+<div style="font-size: 13px; color: #3E5551; margin-top: 2px">{{sel.how}}</div>
+<div style="font-size: 13px; line-height: 1.35; color: #2F4F4F; margin-top: 6px">{{sel.note}}</div>
+<div style="{{statusStyle}}">{{sel.status}}</div>
+</div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; border-top: 1px solid #D5CFBD; padding-top: 10px">
+<div style="display: flex; flex-direction: column; align-items: center; gap: 2px">
+<dc-import name="Boat" kind="{{sel.kind}}" look="color" scale="1" hint-size="44px,40px"></dc-import>
+<span style="font-size: 12px; color: #3E5551">First year</span>
+</div>
+<div style="display: flex; flex-direction: column; align-items: center; gap: 2px">
+<dc-import name="Boat" kind="{{sel.kind}}" look="inverse" scale="1" hint-size="44px,40px"></dc-import>
+<span style="font-size: 12px; color: #3E5551">Second year</span>
+</div>
+<div style="display: flex; flex-direction: column; align-items: center; gap: 2px">
+<dc-import name="Boat" kind="{{sel.kind}}" look="mono" scale="1" hint-size="44px,40px"></dc-import>
+<span style="font-size: 12px; color: #3E5551">Third year</span>
+</div>
+</div>
+</div>
+</sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"onClose":{"editor":null},"$preview":{"width":390,"height":960}}'>
+var BOATS = [{"kind": "paper", "name": "Paper boat", "how": "3-day streak", "x": 150, "y": 100}, {"kind": "rowboat", "name": "Rowboat", "how": "5-day streak", "x": 50, "y": 112}, {"kind": "canoe", "name": "Canoe", "how": "7-day streak", "x": 244, "y": 118}, {"kind": "raft", "name": "Raft", "how": "10-day streak", "x": 100, "y": 8}, {"kind": "gondola", "name": "Gondola", "how": "14-day streak", "x": 142, "y": 298}, {"kind": "houseboat", "name": "Houseboat", "how": "30-day streak", "x": 58, "y": 310}, {"kind": "ferry", "name": "Ferry", "how": "2-month streak", "x": 12, "y": 18}, {"kind": "lightship", "name": "Lightship", "how": "3-month streak", "x": 280, "y": 214}, {"kind": "paddle", "name": "Paddle steamer", "how": "4-month streak", "x": 8, "y": 206}, {"kind": "cargo", "name": "Cargo ship", "how": "5-month streak", "x": 104, "y": 396}, {"kind": "longship", "name": "Longship", "how": "6-month streak", "x": 184, "y": 24}, {"kind": "pirate", "name": "Pirate ship", "how": "7-month streak", "x": 278, "y": 12}, {"kind": "icebreaker", "name": "Icebreaker", "how": "8-month streak", "x": 190, "y": 200}, {"kind": "submarine", "name": "Submarine", "how": "9-month streak", "x": 240, "y": 314}, {"kind": "tallship", "name": "Tall ship", "how": "10-month streak", "x": 96, "y": 218}, {"kind": "liner", "name": "Ocean liner", "how": "11-month streak", "x": 188, "y": 410}, {"kind": "galleon", "name": "Golden galleon", "how": "12-month streak", "x": 276, "y": 400}, {"kind": "ghost", "name": "Ghost ship", "how": "Mystery", "x": 14, "y": 404}];
+// sample progress: which boats are earned, and when
+var NOTES = {
+  paper: 'Folded from a page of the harbor log. Floats better than it should.',
+  rowboat: 'Two oars and a steady pull. Every fleet starts somewhere.',
+  canoe: 'Slips through the reeds without a sound. A full week on the water.',
+  raft: 'Lashed together from driftwood. It holds, mostly.',
+  gondola: 'Glides in from quieter canals. Two weeks without missing a tide.',
+  houseboat: 'After a month, you more or less live here.',
+  ferry: 'Runs on schedule, rain or fog. Just like you.',
+  lightship: 'Anchored where no lighthouse can stand. Other ships steer by it.',
+  paddle: 'Churns upriver at its own pace. Never in a hurry, never late.',
+  cargo: 'Stacked high and riding low. Five months of deliveries.',
+  longship: 'Shields along the rail, striped sail up. Half a year at sea.',
+  pirate: 'Flies its own flag. Nobody is quite sure when it arrived.',
+  icebreaker: 'Goes where the harbor freezes over. Nothing stops it.',
+  submarine: 'Mostly below the surface. It was here the whole time.',
+  tallship: 'Three masts, full sail. The whole harbor turns to look.',
+  liner: 'Three funnels and a crossing nearly done.',
+  galleon: 'A full year in the fog. The harbor is yours.',
+  ghost: 'Seen only on the nights a fleet slips away. Some say it knows the answer.'
+};
+var EARNED = { paper: 'Earned Oct 28', rowboat: 'Earned Oct 30', canoe: 'Earned Nov 1', raft: 'Earned Nov 4' };
+
+var TAB = 'min-height: 40px; border-radius: 10px; border: 0; font-size: 13px; font-weight: 600; cursor: pointer; ';
+var TAB_ON = 'background: #2F4F4F; color: #F6F1E3;';
+var TAB_OFF = 'background: transparent; color: #2F4F4F;';
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { picked: 'raft', all: false };
+  }
+  renderVals() {
+    var self = this, s = this.state;
+    var boats = BOATS.map(function (b) {
+      var got = !!EARNED[b.kind], on = s.picked === b.kind;
+      var name = b.kind === 'ghost' && !got ? 'Mystery boat' : b.name;
+      return {
+        kind: b.kind,
+        aria: name + ', ' + b.how + ', ' + (got ? 'earned' : 'not yet earned'),
+        pick: function () { self.setState({ picked: b.kind }); },
+        style: 'position: absolute; left: ' + b.x + 'px; top: ' + Math.round(b.y * 0.875) + 'px; width: 72px; height: 64px; padding: 0; border-radius: 14px; display: flex; align-items: center; justify-content: center; cursor: pointer; ' +
+          (on ? 'background: rgba(247,233,194,0.9); border: 2px solid #B98222; ' : 'background: transparent; border: 2px solid transparent; ') +
+          (got ? '' : 'filter: grayscale(1); opacity: 0.3;')
+      };
+    });
+    var cur = BOATS.filter(function (b) { return b.kind === s.picked; })[0];
+    var got = !!EARNED[cur.kind], mystery = cur.kind === 'ghost' && !got;
+    var count = BOATS.filter(function (b) { return EARNED[b.kind]; }).length;
+    return {
+      boats: boats,
+      showAll: s.all, showHarbor: !s.all,
+      harborPressed: s.all ? 'false' : 'true', allPressed: s.all ? 'true' : 'false',
+      harborTab: TAB + (s.all ? TAB_OFF : TAB_ON), allTab: TAB + (s.all ? TAB_ON : TAB_OFF),
+      viewHarbor: function () { self.setState({ all: false }); },
+      viewAll: function () { self.setState({ all: true }); },
+      list: BOATS.map(function (b) {
+        var g = !!EARNED[b.kind], m = b.kind === 'ghost' && !g;
+        return {
+          kind: b.kind, name: m ? 'Mystery boat' : b.name, how: m ? 'Mystery' : b.how,
+          note: m ? 'Drifts in when you least expect it.' : NOTES[b.kind],
+          status: g ? EARNED[b.kind] : 'Not yet in your harbor',
+          iconStyle: 'width: 62px; height: 56px; border-radius: 12px; background: #D7E3E1; display: flex; align-items: center; justify-content: center; flex-shrink: 0; ' + (g ? '' : 'filter: grayscale(1); opacity: 0.45;'),
+          statusStyle: 'font-size: 12px; font-weight: 600; margin-top: 4px; color: ' + (g ? '#7A4E0E' : '#3E5551') + ';'
+        };
+      }),
+      countLabel: count + ' of ' + BOATS.length + ' boats in harbor',
+      sel: {
+        kind: cur.kind,
+        name: mystery ? 'Mystery boat' : cur.name,
+        how: mystery ? 'Mystery' : cur.how,
+        note: mystery ? 'Drifts in when you least expect it.' : NOTES[cur.kind],
+        status: got ? EARNED[cur.kind] : 'Not yet in your harbor'
+      },
+      bigStyle: 'width: 80px; height: 70px; border-radius: 14px; background: #D7E3E1; display: flex; align-items: center; justify-content: center; flex-shrink: 0; ' + (got ? '' : 'filter: grayscale(1); opacity: 0.45;'),
+      statusStyle: 'font-size: 13px; font-weight: 600; margin-top: 6px; color: ' + (got ? '#7A4E0E' : '#3E5551') + ';',
+      close: function () { if (self.props.onClose) self.props.onClose(); }
+    };
+  }
+}
+</script>
+</body>
+</html>

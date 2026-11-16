@@ -1,0 +1,138 @@
+{
+  "userId": "t2_1a2b3c",
+  "username": "harbor_karo",
+  "joinedOn": "2026-08-10",
+  "streak": {
+    "current": 94,
+    "best": 94,
+    "lastCountedDay": "2026-11-15",
+    "daysPlayed": 97,
+    "repairs": {
+      "available": 3,
+      "earned": 3,
+      "used": 0,
+      "nextAtDaysPlayed": 120,
+      "repairedDays": []
+    }
+  },
+  "boats": {
+    "paper": {
+      "firstEarnedOn": "2026-08-12",
+      "timesEarned": 1
+    },
+    "rowboat": {
+      "firstEarnedOn": "2026-08-14",
+      "timesEarned": 1
+    },
+    "canoe": {
+      "firstEarnedOn": "2026-08-16",
+      "timesEarned": 1
+    },
+    "raft": {
+      "firstEarnedOn": "2026-08-19",
+      "timesEarned": 1
+    },
+    "gondola": {
+      "firstEarnedOn": "2026-08-23",
+      "timesEarned": 1
+    },
+    "houseboat": {
+      "firstEarnedOn": "2026-09-08",
+      "timesEarned": 1
+    },
+    "ferry": {
+      "firstEarnedOn": "2026-10-08",
+      "timesEarned": 1
+    },
+    "lightship": {
+      "firstEarnedOn": "2026-11-07",
+      "timesEarned": 1
+    },
+    "ghost": {
+      "firstEarnedOn": "2026-09-21",
+      "timesEarned": 2
+    }
+  },
+  "sightings": {
+    "easy": {
+      "1": 0,
+      "2": 0,
+      "3": 1,
+      "4": 1,
+      "5": 3,
+      "6": 6,
+      "7": 9,
+      "8": 12
+    },
+    "hard": {
+      "1": 0,
+      "2": 0,
+      "3": 0,
+      "4": 1,
+      "5": 2,
+      "6": 4,
+      "7": 7,
+      "8": 5
+    }
+  },
+  "days": {
+    "2026-11-13": {
+      "easy": {
+        "outcome": "found",
+        "guesses": 6,
+        "limit": 8,
+        "rounds": 1,
+        "hints": 0
+      },
+      "hard": null
+    },
+    "2026-11-14": {
+      "easy": {
+        "outcome": "rescued",
+        "guesses": 11,
+        "limit": 8,
+        "rounds": 2,
+        "hints": 1
+      },
+      "hard": {
+        "outcome": "sailed_away",
+        "guesses": 10,
+        "limit": 10,
+        "rounds": 1,
+        "hints": 0
+      }
+    },
+    "2026-11-15": {
+      "easy": {
+        "outcome": "found",
+        "guesses": 4,
+        "limit": 8,
+        "rounds": 1,
+        "hints": 0
+      },
+      "hard": {
+        "outcome": "found",
+        "guesses": 7,
+        "limit": 10,
+        "rounds": 1,
+        "hints": 0
+      }
+    },
+    "2026-11-16": {
+      "easy": {
+        "outcome": "in_progress",
+        "guesses": 2,
+        "limit": 8,
+        "rounds": 1,
+        "hints": 0
+      },
+      "hard": null
+    }
+  },
+  "settings": {
+    "theme": "classic",
+    "unlockedThemes": [
+      "classic"
+    ]
+  }
+}

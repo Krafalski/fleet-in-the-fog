@@ -1,0 +1,39 @@
+:root {
+  /* Fleet in the Fog palette */
+  /* page and panels */
+  --fog: #E3E6DF;          /* page background */
+  --paper: #F4EFE2;        /* cards and panels */
+  --water: #D7E3E1;        /* harbor / fleet background */
+  --ink: #2F4F4F;          /* main text, dark buttons */
+  --ink-soft: #3E5551;     /* secondary text */
+  /* highlight */
+  --lantern: #D9A441;      /* current-row glow */
+  --lantern-pale: #F7E9C2; /* selected / earned backgrounds */
+  --lantern-deep: #B98222; /* selected outlines */
+  --gold-text: #7A4E0E;    /* gold text that passes contrast */
+  /* boat paints */
+  --hull-dark: #3E4A47; --hull-black: #2F3B3A; --soot: #1F2A2A;
+  --rust: #B5543B; --cream: #F1E6CC; --cream-deep: #E8D9B0; --sailcloth: #FBF8EF;
+  --sand: #E3B98F; --teal: #3F6E68; --teal-pale: #9DBDB6; --navy: #2E4A6B;
+  --plum: #6B5577; --wood: #8A5A3C;
+  /* wave slots */
+  --wave-current-back: #B3D0D3; --wave-current-front: #7FA9AF;
+  --wave-past-back: #C6D8D9;    --wave-past-front: #A3C0C3;
+  --wave-empty-back: #DDE5E2;   --wave-empty-front: #D0DBD8;
+}
+
+/* Boat looks, for use with the SVG sprite (fleet-boats.svg) */
+.boat--locked { filter: grayscale(1); opacity: 0.3; }   /* not earned yet */
+.boat--year2  { filter: invert(1) hue-rotate(180deg); } /* second time around */
+.boat--year3  { filter: grayscale(1) contrast(1.15); }  /* third time around */
+
+/* The fog lift on a win */
+@keyframes fogLeft  { 0% { opacity: .78; transform: translateX(0) scale(1); } 25%, 40% { opacity: 1; transform: translateX(4%) scale(1.12); } 100% { opacity: 0; transform: translateX(-80%) scale(1.25); } }
+@keyframes fogRight { 0% { opacity: .78; transform: translateX(0) scale(1); } 25%, 40% { opacity: 1; transform: translateX(-4%) scale(1.12); } 100% { opacity: 0; transform: translateX(80%) scale(1.25); } }
+@keyframes fogDrift { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(6px); } }
+@keyframes shipIn   { 0% { opacity: 0; transform: translateY(4px); } 100% { opacity: 1; transform: translateY(0); } }
+.cloud { position: absolute; width: 68%; border-radius: 50%; background: #fff; filter: blur(12px); pointer-events: none; }
+.cloud--left.lifting  { animation: fogLeft 5000ms ease-in-out forwards; }
+.cloud--right.lifting { animation: fogRight 5000ms ease-in-out forwards; }
+.fog-reveal { animation: shipIn 1600ms ease 2400ms both; }
+@media (prefers-reduced-motion: reduce) { * { animation-duration: 1ms !important; animation-delay: 0ms !important; } }

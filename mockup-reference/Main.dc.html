@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Fleet in the Fog — game screen</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;1,9..144,500&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#2F4F4F}a:hover{color:#1F3535}
+button{font-family:inherit}
+@keyframes fogDrift{0%,100%{transform:translateX(0)}50%{transform:translateX(6px)}}
+@keyframes fogLeft{0%{opacity:.78;transform:translateX(0) scale(1)}25%{opacity:1;transform:translateX(4%) scale(1.12)}40%{opacity:1;transform:translateX(4%) scale(1.12)}100%{opacity:0;transform:translateX(-80%) scale(1.25)}}
+@keyframes fogRight{0%{opacity:.78;transform:translateX(0) scale(1)}25%{opacity:1;transform:translateX(-4%) scale(1.12)}40%{opacity:1;transform:translateX(-4%) scale(1.12)}100%{opacity:0;transform:translateX(80%) scale(1.25)}}
+@keyframes shipIn{0%{opacity:0;transform:translateY(4px)}100%{opacity:1;transform:translateY(0)}}
+@media (prefers-reduced-motion: reduce){*{animation-duration:1ms !important;animation-delay:0ms !important}}
+</style>
+</helmet>
+<div style="width: 390px; height: 960px; background: #E3E6DF">
+<sc-if value="{{showArchive}}" hint-placeholder-val="{{false}}">
+<dc-import name="Archive" on-close="{{closeArchive}}" on-pick="{{pickPuzzle}}" hint-size="390px,900px"></dc-import>
+</sc-if>
+<sc-if value="{{showComplete}}" hint-placeholder-val="{{false}}">
+<dc-import name="Complete" won="{{won}}" used="{{usedCount}}" max="{{maxCount}}" hints="{{hintsUsed}}" mode-label="{{modeName}}" date-label="{{dateLabel}}" on-close="{{closeComplete}}" on-log="{{openArchive}}" on-fleet="{{openFleet}}" hint-size="390px,960px"></dc-import>
+</sc-if>
+<sc-if value="{{showFleet}}" hint-placeholder-val="{{false}}">
+<dc-import name="Fleet" on-close="{{closeComplete}}" hint-size="390px,960px"></dc-import>
+</sc-if>
+<sc-if value="{{showGame}}" hint-placeholder-val="{{true}}">
+<div style="width: 390px; height: 960px; box-sizing: border-box; background: #E3E6DF; font-family: Inter, system-ui, sans-serif; color: #2F4F4F; display: flex; flex-direction: column; gap: 12px; padding: 8px 14px 16px">
+
+<div style="display: flex; align-items: center; justify-content: space-between; height: 56px">
+<div style="display: flex; gap: 2px">
+<button onClick="{{openArchive}}" aria-label="Harbor log: past puzzles" style="width: 44px; height: 44px; border: 0; background: transparent; color: #2F4F4F; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 18 V5 A2 2 0 0 1 7 3 H19 V17 H7 A2 2 0 0 0 5 19 A2 2 0 0 0 7 21 H19 V17"></path><line x1="9" y1="7.5" x2="15" y2="7.5"></line><line x1="9" y1="10.5" x2="13" y2="10.5"></line></svg></button>
+<button onClick="{{openFleet}}" aria-label="Lighthouse: your fleet" style="width: 44px; height: 44px; border: 0; background: transparent; color: #2F4F4F; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 6 L12 3 L15.5 6"></path><rect x="9.5" y="6" width="5" height="3.5"></rect><path d="M9.8 9.5 L8.8 20 H15.2 L14.2 9.5"></path><line x1="9.3" y1="14.5" x2="14.7" y2="14.5"></line><line x1="6" y1="20.5" x2="18" y2="20.5"></line><line x1="3.5" y1="6.5" x2="6.5" y2="7.5"></line><line x1="20.5" y1="6.5" x2="17.5" y2="7.5"></line></svg></button>
+</div>
+<div style="text-align: center">
+<div style="font-family: Fraunces, Georgia, serif; font-size: 22px; line-height: 1.1">Fleet in <em>the Fog</em></div>
+<div style="font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #4A6460; margin-top: 2px">{{puzzleLabel}}</div>
+</div>
+<div style="display: flex; gap: 2px">
+<button aria-label="Customize: board themes" style="width: 44px; height: 44px; border: 0; background: transparent; color: #2F4F4F; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 4 L11.5 12.5"></path><path d="M11 13 C8 12 5.5 14 5.5 17 C5.5 19 4 20 3 20 C6 22 12 21 12.5 16 C12.6 14.8 12 13.6 11 13 Z"></path></svg></button>
+<button aria-label="How to play" style="width: 44px; height: 44px; border: 0; background: transparent; color: #2F4F4F; display: flex; align-items: center; justify-content: center; cursor: pointer"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="11" x2="12" y2="16.5"></line><circle cx="12" cy="7.8" r="0.6" fill="currentColor"></circle></svg></button>
+</div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; background: #D6DAD2; border-radius: 14px; padding: 4px" role="group" aria-label="Difficulty">
+<sc-for list="{{modes}}" as="m" hint-placeholder-count="3">
+<button onClick="{{m.pick}}" aria-pressed="{{m.pressed}}" style="{{m.style}}">{{m.label}}</button>
+</sc-for>
+</div>
+
+<div style="position: relative; overflow: hidden; background: #EEF0EA; border-radius: 18px; padding: 10px 10px 12px; box-shadow: 0 1px 0 rgba(47,79,79,0.08)">
+<div style="{{revealStyle}}">
+<div style="font-size: 12px; font-weight: 500; color: #4A6460; text-align: center">{{fogLabel}}</div>
+<div style="padding: 6px 0">
+<div style="{{fogRowStyle}}">
+<sc-for list="{{secretSlots}}" as="f" hint-placeholder-count="4">
+<div style="{{f.style}}" role="img" aria-label="{{f.label}}">
+<sc-if value="{{f.show}}" hint-placeholder-val="{{false}}">
+<dc-import name="Ship" kind="{{f.kind}}" scale="{{shipScale}}" hint-size="44px,40px"></dc-import>
+</sc-if>
+<sc-if value="{{f.hidden}}" hint-placeholder-val="{{true}}">
+<span style="font-family: Fraunces, Georgia, serif; font-size: 20px; color: #5F726C">?</span>
+</sc-if>
+</div>
+</sc-for>
+</div>
+</div>
+</div>
+<div style="{{cloudL}}" aria-hidden="true"></div>
+<div style="{{cloudR}}" aria-hidden="true"></div>
+</div>
+
+<button onClick="{{logGuess}}" style="{{logStyle}}">{{logLabel}}</button>
+
+<div ref="{{boardRef}}" style="display: flex; flex-direction: column; gap: 2px; max-height: 432px; overflow-y: auto; padding: 6px 4px; margin: -6px -4px">
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="8">
+<div style="{{r.style}}">
+<div style="width: 18px; font-family: Fraunces, Georgia, serif; font-style: italic; font-size: 14px; color: #4A6460; text-align: center">{{r.num}}</div>
+<div style="{{slotRowStyle}}">
+<sc-for list="{{r.slots}}" as="s" hint-placeholder-count="4">
+<button style="{{s.style}}" onClick="{{s.tap}}" aria-label="{{s.label}}">
+<svg style="position: absolute; left: 0; top: 0" width="100%" height="100%" viewBox="0 0 52 44" preserveAspectRatio="none" aria-hidden="true"><path d="M0 31 Q 26 37 52 31 L52 44 L0 44 Z" fill="{{s.back}}"></path></svg>
+<sc-if value="{{s.has}}" hint-placeholder-val="{{false}}">
+<div style="position: relative; transform: translateY(1px)">
+<dc-import name="Ship" kind="{{s.kind}}" scale="{{shipScale}}" hint-size="44px,40px"></dc-import>
+</div>
+</sc-if>
+<svg style="position: absolute; left: 0; bottom: 0" width="100%" height="8" viewBox="0 0 52 8" preserveAspectRatio="none" aria-hidden="true"><path d="M0 4 Q 6.5 2.5 13 4 T 26 4 T 39 4 T 52 4 V8 H0 Z" fill="{{s.front}}"></path></svg>
+</button>
+</sc-for>
+</div>
+<div style="{{pegGridStyle}}" role="img" aria-label="{{r.pegLabel}}">
+<sc-for list="{{r.pegs}}" as="p" hint-placeholder-count="4">
+<span style="{{p.style}}"></span>
+</sc-for>
+</div>
+</div>
+</sc-for>
+</div>
+
+<div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #3E5551; padding: 0 4px">
+<div style="display: flex; gap: 14px; align-items: center">
+<span style="display: flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 50%; background: #2F4F4F"></span>Right ship, right spot</span>
+<span style="display: flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 50%; box-sizing: border-box; border: 2px solid #2F4F4F"></span>Wrong spot</span>
+</div>
+<span style="font-weight: 600">{{status}}</span>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px">
+<sc-for list="{{palette}}" as="p" hint-placeholder-count="6">
+<button style="{{p.style}}" onClick="{{p.pick}}" aria-label="{{p.aria}}">
+<dc-import name="Ship" kind="{{p.kind}}" scale="1" hint-size="44px,40px"></dc-import>
+<span style="{{p.labelStyle}}">{{p.label}}</span>
+</button>
+</sc-for>
+</div>
+
+<div style="display: flex; justify-content: space-between; align-items: center">
+<button onClick="{{useHint}}" aria-label="{{hintAria}}" style="{{hintStyle}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18 H15"></path><path d="M10 21 H14"></path><path d="M12 3 A6 6 0 0 0 8 13.5 C9 14.5 9 15.5 9 16 H15 C15 15.5 15 14.5 16 13.5 A6 6 0 0 0 12 3 Z"></path></svg>{{hintLabel}}</button>
+<div style="display: flex">
+<button onClick="{{clearRow}}" style="border: 0; background: transparent; color: #2F4F4F; font-size: 13px; text-decoration: underline; min-height: 44px; padding: 0 8px; cursor: pointer">Clear row</button>
+<button onClick="{{resetBoard}}" style="border: 0; background: transparent; color: #2F4F4F; font-size: 13px; text-decoration: underline; min-height: 44px; padding: 0 8px; cursor: pointer">Reset board</button>
+</div>
+</div>
+
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":960}}'>
+var SHIPS = [
+  { kind: 'fisher', label: 'Fisher' }, { kind: 'junk', label: 'Junk' },
+  { kind: 'mailboat', label: 'Mailboat' }, { kind: 'schooner', label: 'Schooner' },
+  { kind: 'tug', label: 'Tug' }, { kind: 'yacht', label: 'Yacht' }
+];
+var MODES = [
+  { id: 'easy', label: 'Easy · 4' }, { id: 'medium', label: 'Medium · 5' }, { id: 'hard', label: 'Hard · 6' }
+];
+// test answers
+var SECRETS = {
+  easy: ['junk', 'junk', 'junk', 'junk'],
+  medium: ['schooner', 'tug', 'yacht', 'junk', 'fisher'],
+  hard: ['mailboat', 'junk', 'tug', 'tug', 'yacht', 'schooner']
+};
+var SIZE = {
+  4: { w: 56, h: 46, gap: 8, scale: 1.05 },
+  5: { w: 48, h: 44, gap: 6, scale: 0.95 },
+  6: { w: 41, h: 42, gap: 4, scale: 0.85 }
+};
+var MAXG = { easy: 8, medium: 10, hard: 12 };
+var AUTO_OUT = { easy: [], medium: [], hard: ['fisher'] };
+var MODE_NAME = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
+var PEG = 'width: 10px; height: 10px; border-radius: 50%; box-sizing: border-box; ';
+
+function blank(n) { var a = []; for (var i = 0; i < n; i++) a.push(null); return a; }
+
+function score(g, c) {
+  var exact = 0, gr = [], cr = [];
+  for (var i = 0; i < c.length; i++) {
+    if (g[i] === c[i]) exact++; else { gr.push(g[i]); cr.push(c[i]); }
+  }
+  var near = 0;
+  gr.forEach(function (x) { var j = cr.indexOf(x); if (j > -1) { near++; cr.splice(j, 1); } });
+  return { exact: exact, near: near };
+}
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { mode: 'easy', guesses: [], current: blank(4), selected: 'fisher', held: null, hinted: [], view: 'game', dateLabel: 'Nov 15, 2026' };
+    var self = this;
+    this.boardRef = function (el) { self.boardEl = el; };
+  }
+
+  setMode(mode) {
+    var n = SECRETS[mode].length;
+    clearTimeout(this.timer);
+    this.setState({ mode: mode, guesses: [], current: blank(n), held: null, hinted: AUTO_OUT[mode].slice() });
+  }
+
+  componentDidUpdate(prevProps, prevState) {
+    var el = this.boardEl, g = this.state.guesses.length;
+    if (el && (prevState.guesses.length !== g || prevState.mode !== this.state.mode)) {
+      var rowH = el.scrollHeight / MAXG[this.state.mode];
+      el.scrollTop = Math.max(0, (g - 3) * rowH);
+    }
+  }
+
+  componentWillUnmount() { clearTimeout(this.timer); }
+
+  tapSlot(j) {
+    var s = this.state, c = s.current.slice();
+    if (s.held === j) { c[j] = null; this.setState({ current: c, held: null }); return; }
+    if (s.held !== null) { var t = c[s.held]; c[s.held] = c[j]; c[j] = t; this.setState({ current: c, held: null }); return; }
+    if (c[j]) { this.setState({ held: j }); return; }
+    if (s.selected) { c[j] = s.selected; this.setState({ current: c }); }
+  }
+
+  pickShip(kind) {
+    var s = this.state;
+    if (s.hinted.indexOf(kind) > -1) return;
+    if (s.held !== null) {
+      var c = s.current.slice(); c[s.held] = kind;
+      this.setState({ current: c, held: null, selected: kind }); return;
+    }
+    this.setState({ selected: kind });
+  }
+
+  renderVals() {
+    var self = this, s = this.state;
+    var secret = SECRETS[s.mode], n = secret.length, sz = SIZE[n];
+    var maxG = MAXG[s.mode];
+    var hintsUsed = s.hinted.length - AUTO_OUT[s.mode].length;
+    var results = s.guesses.map(function (g) { return score(g, secret); });
+    var won = results.some(function (r) { return r.exact === n; });
+    var over = won || s.guesses.length >= maxG;
+    var canLog = !over && s.current.every(Boolean);
+
+    var hintPool = SHIPS.map(function (x) { return x.kind; }).filter(function (k) { return secret.indexOf(k) === -1 && s.hinted.indexOf(k) === -1; });
+    var canHint = !over && hintPool.length > 0;
+
+    var rows = [];
+    for (var i = 0; i < maxG; i++) {
+      (function (i) {
+        var isPast = i < s.guesses.length;
+        var isCur = !over && i === s.guesses.length;
+        var ships = isPast ? s.guesses[i] : (isCur ? s.current : blank(n));
+        var slots = ships.map(function (k, j) {
+          var held = isCur && s.held === j;
+          return {
+            kind: k || 'yacht', has: !!k,
+            back: isCur ? '#B3D0D3' : isPast ? '#C6D8D9' : '#DDE5E2',
+            front: isCur ? '#7FA9AF' : isPast ? '#A3C0C3' : '#D0DBD8',
+            label: 'Row ' + (i + 1) + ', spot ' + (j + 1) + (k ? ', ' + k : ', empty') + (held ? ', picked up' : ''),
+            style: 'position: relative; overflow: hidden; width: ' + sz.w + 'px; height: ' + sz.h + 'px; border: 0; padding: 0; background: transparent; border-radius: 10px; display: flex; align-items: center; justify-content: center; transition: transform 120ms; ' +
+              (isCur ? 'cursor: pointer; ' : '') +
+              (held ? 'outline: 2px solid #B98222; outline-offset: 1px; transform: translateY(-3px);' : ''),
+            tap: isCur ? function () { self.tapSlot(j); } : function () {}
+          };
+        });
+        var pegs = [], pegLabel = 'No feedback yet';
+        if (isPast) {
+          var r = results[i];
+          pegLabel = r.exact + ' right spot, ' + r.near + ' wrong spot';
+          for (var p = 0; p < n; p++) {
+            pegs.push({ style: PEG + (p < r.exact ? 'background: #2F4F4F;' : p < r.exact + r.near ? 'border: 2px solid #2F4F4F;' : 'background: #CFC8B4;') });
+          }
+        } else {
+          for (var q = 0; q < n; q++) pegs.push({ style: PEG + 'background: #D9D4C6;' });
+        }
+        rows.push({
+          num: String(i + 1), slots: slots, pegs: pegs, pegLabel: pegLabel,
+          style: 'display: flex; align-items: center; gap: 8px; padding: 2px 6px; border-radius: 14px; ' +
+            (isCur ? 'background: #F7EFD6; box-shadow: 0 0 0 2px #D9A441, 0 0 16px rgba(217,164,65,0.4);' : '')
+        });
+      })(i);
+    }
+
+    var secretSlots = secret.map(function (k, j) {
+      return {
+        kind: k, show: won, hidden: !won,
+        label: won ? 'Spot ' + (j + 1) + ', ' + k : 'Spot ' + (j + 1) + ', hidden in fog',
+        style: 'width: ' + sz.w + 'px; height: ' + sz.h + 'px; border-radius: 12px; display: flex; align-items: center; justify-content: center; ' +
+          (won ? 'background: #F7E9C2; box-shadow: 0 0 0 2px #D9A441;' : 'background: #F8F9F6; box-shadow: 0 0 14px 6px rgba(255,255,255,0.9);')
+      };
+    });
+
+    var palette = SHIPS.map(function (sh) {
+      var sel = s.selected === sh.kind, out = s.hinted.indexOf(sh.kind) > -1;
+      return {
+        kind: sh.kind, label: sh.label,
+        aria: sh.label + (out ? ', ruled out by hint' : sel ? ', selected' : ''),
+        pick: function () { self.pickShip(sh.kind); },
+        labelStyle: 'font-size: 11px; color: #2F4F4F; ' + (out ? 'text-decoration: line-through;' : ''),
+        style: 'min-height: 62px; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; padding: 2px 0 4px; ' +
+          (out ? 'background: #DCDFD8; border: 2px solid transparent; opacity: 0.4; filter: grayscale(1); cursor: not-allowed;' :
+           sel ? 'background: #F7E9C2; border: 2px solid #B98222; cursor: pointer;' :
+           'background: #F4EFE2; border: 2px solid transparent; cursor: pointer;')
+      };
+    });
+
+    var modes = MODES.map(function (m) {
+      var on = s.mode === m.id;
+      return {
+        label: m.label, pressed: on ? 'true' : 'false',
+        pick: function () { if (!on) self.setMode(m.id); },
+        style: 'min-height: 40px; border-radius: 10px; border: 0; font-size: 13px; font-weight: 600; cursor: pointer; ' +
+          (on ? 'background: #2F4F4F; color: #F6F1E3;' : 'background: transparent; color: #2F4F4F;')
+      };
+    });
+
+    var CLOUD = 'position: absolute; width: 68%; border-radius: 50%; background: #FFFFFF; filter: blur(12px); pointer-events: none; ' +
+      (won ? 'top: -30%; height: 160%; ' : 'top: 30px; height: 64px; ');
+
+    var status = won ? 'Solved in ' + s.guesses.length + '!' :
+                 over ? 'The fleet slipped away' : 'Guess ' + (s.guesses.length + 1) + ' of ' + maxG;
+
+    return {
+      rows: rows, secretSlots: secretSlots, palette: palette, modes: modes, status: status,
+      shipScale: sz.scale,
+      slotRowStyle: 'display: flex; gap: ' + sz.gap + 'px; flex-grow: 1; justify-content: center',
+      fogRowStyle: 'display: flex; justify-content: center; gap: ' + sz.gap + 'px',
+      pegGridStyle: 'display: grid; grid-template-columns: repeat(' + (n > 4 ? 3 : 2) + ', minmax(0, 1fr)); gap: 4px; width: ' + (n > 4 ? 38 : 24) + 'px',
+      cloudL: CLOUD + 'left: -12%; ' + (won ? 'animation: fogLeft 5000ms ease-in-out forwards;' : 'opacity: 0.78; animation: fogDrift 9s ease-in-out infinite;'),
+      cloudR: CLOUD + 'right: -12%; ' + (won ? 'animation: fogRight 5000ms ease-in-out forwards;' : 'opacity: 0.78; animation: fogDrift 11s ease-in-out infinite reverse;'),
+      revealStyle: 'display: flex; flex-direction: column; gap: 8px; ' + (won ? 'animation: shipIn 1600ms ease 2400ms both;' : ''),
+      fogLabel: won ? 'The fog lifts. Here is the fleet.' : n + ' ships came in before dawn' + (s.mode === 'hard' ? '. No fishers today.' : ''),
+      showArchive: s.view === 'archive', showComplete: s.view === 'complete', showFleet: s.view === 'fleet',
+      openFleet: function () { clearTimeout(self.timer); self.setState({ view: 'fleet' }); }, showGame: s.view === 'game',
+      won: won, usedCount: s.guesses.length, maxCount: maxG, hintsUsed: hintsUsed, modeName: MODE_NAME[s.mode], dateLabel: s.dateLabel,
+      boardRef: self.boardRef,
+      closeComplete: function () { self.setState({ view: 'game' }); },
+      logLabel: over ? 'See results' : 'Log guess',
+      puzzleLabel: 'Harbor log · ' + s.dateLabel,
+      openArchive: function () { clearTimeout(self.timer); self.setState({ view: 'archive' }); },
+      closeArchive: function () { self.setState({ view: 'game' }); },
+      pickPuzzle: function (label) { self.setState({ view: 'game', dateLabel: label }); },
+      logStyle: 'height: 52px; border-radius: 14px; border: 0; font-size: 16px; font-weight: 600; ' +
+        (canLog || over ? 'background: #2F4F4F; color: #F6F1E3; cursor: pointer;' : 'background: #B9C2BD; color: #2F4F4F; cursor: default;'),
+      logGuess: function () {
+        if (over) { clearTimeout(self.timer); self.setState({ view: 'complete' }); return; }
+        if (!canLog) return;
+        var r = score(s.current, secret), solved = r.exact === n;
+        if (solved || s.guesses.length + 1 >= maxG) {
+          clearTimeout(self.timer);
+          self.timer = setTimeout(function () { self.setState({ view: 'complete' }); }, solved ? 5800 : 1200);
+        }
+        self.setState({ guesses: s.guesses.concat([s.current.slice()]), current: blank(n), held: null });
+      },
+      hintLabel: !canHint && hintPool.length === 0 ? 'No hints left' : hintsUsed ? 'Hint · ' + hintsUsed + ' used' : 'Hint',
+      hintAria: 'Hint: rule out one ship that is not in the fleet',
+      hintStyle: 'display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 14px; border-radius: 12px; font-size: 14px; font-weight: 600; ' +
+        (canHint ? 'background: #F4EFE2; color: #2F4F4F; border: 1px solid #9AA8A3; cursor: pointer;' : 'background: transparent; color: #6A7C77; border: 1px solid #C5C9C0; cursor: default;'),
+      useHint: function () {
+        if (!canHint) return;
+        var k = hintPool[0];
+        var c = s.current.map(function (x) { return x === k ? null : x; });
+        self.setState({ hinted: s.hinted.concat([k]), current: c, held: null, selected: s.selected === k ? null : s.selected });
+      },
+      clearRow: function () { self.setState({ current: blank(n), held: null }); },
+      resetBoard: function () { clearTimeout(self.timer); self.setState({ guesses: [], current: blank(n), held: null, hinted: AUTO_OUT[s.mode].slice() }); }
+    };
+  }
+}
+</script>
+</body>
+</html>
