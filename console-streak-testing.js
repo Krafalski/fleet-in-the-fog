@@ -57,4 +57,4 @@ window.showSaved = () => {
 //
 // Notes
 // - Only days solved on their own day count; opening an old day from the Harbor log won't add to the streak.
-// - If today is already finished, seeding won't replay it: use "Reset today" in the Dev bar.
+// - If today is already finished, seeding won't replay it: use "Rez
