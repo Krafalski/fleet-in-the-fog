@@ -4,7 +4,7 @@
 import { useEffect, useRef } from 'react';
 import type { CSSProperties } from 'react';
 import { MODES } from '../game/game';
-import type { Feedback } from '../game/game';
+import type { Feedback, Spot } from '../game/game';
 import type { GameState } from '../game/reducer';
 import { WaveSlot } from './WaveSlot';
 
@@ -22,6 +22,9 @@ export function Board({ state, boatSize, onTapSlot, lastRow }: Props) {
   useEffect(() => {
     currentRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }, [currentRow]);
+
+  // A logged row shows marks under each ship when the mode asks for it and the row was scored that way.
+  const perSpotRow = (r: number) => state.perSpot && r < state.guesses.length && !!state.feedback[r]?.spots;
 
   const rows = [];
   for (let r = 0; r < maxGuesses; r++) {
@@ -49,9 +52,13 @@ export function Board({ state, boatSize, onTapSlot, lastRow }: Props) {
               />
             ))}
             <Water slots={slots} layer="front" />
+            {perSpotRow(r) && <SpotMarks spots={state.feedback[r].spots!} reveal={r === newestRow} />}
           </div>
         </div>
-        <Pegs feedback={isPast ? state.feedback[r] : null} slots={slots} reveal={r === newestRow} />
+        {/* With marks under each ship, the end of the row stays empty (older saved rows without marks still show totals). */}
+        {state.perSpot && !(isPast && !state.feedback[r]?.spots)
+          ? <div className="pegs pegs--none" aria-hidden="true" />
+          : <Pegs feedback={isPast ? state.feedback[r] : null} slots={slots} reveal={r === newestRow} />}
       </div>,
     );
   }
@@ -72,6 +79,40 @@ function Water({ slots, layer }: { slots: number; layer: 'back' | 'front' }) {
   return (
     <svg className={`sea__${layer}`} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" aria-hidden="true">
       <path d={path} />
+    </svg>
+  );
+}
+
+// Marks under each ship, in the same order as the ships: black anchor = right ship, right spot.
+// White anchor = right ship, wrong spot. Nothing = not in the fleet.
+// They sit on the water, lined up with the spots, and drop in one at a time.
+function SpotMarks({ spots, reveal }: { spots: Spot[]; reveal: boolean }) {
+  const words = { exact: 'right spot', near: 'wrong spot', miss: 'not in the fleet' };
+  return (
+    <div className="spot-marks" role="img" aria-label={spots.map((s, i) => `spot ${i + 1} ${words[s]}`).join(', ')}>
+      {spots.map((s, i) => (
+        <span key={i} className="spot-marks__cell">
+          {s !== 'miss' && (
+            <span className={`spot-anchor${reveal ? ' spot-anchor--reveal' : ''}`} style={{ '--i': i } as CSSProperties}>
+              <AnchorMark kind={s} />
+            </span>
+          )}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+// The anchor from the icon set, drawn twice: a thick outline underneath so it reads on the water,
+// then the anchor itself on top. exact = black anchor, near = white anchor.
+export function AnchorMark({ kind, size = 16 }: { kind: 'exact' | 'near'; size?: number }) {
+  const shape = (
+    <><circle cx="12" cy="5.3" r="2" /><line x1="12" y1="7.3" x2="12" y2="20" /><line x1="8.5" y1="10.8" x2="15.5" y2="10.8" /><path d="M5 13.5 Q5.5 20 12 20 Q18.5 20 19 13.5" /></>
+  );
+  return (
+    <svg className={`anchor-mark anchor-mark--${kind}`} viewBox="0 0 24 24" width={size} height={size} fill="none" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <g className="anchor-mark__edge" strokeWidth={5}>{shape}</g>
+      <g className="anchor-mark__body" strokeWidth={2.4}>{shape}</g>
     </svg>
   );
 }

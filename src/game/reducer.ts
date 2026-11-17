@@ -19,6 +19,7 @@ export type GameState = {
   answer: Ship[] | null;       // only filled in once the game is over
   rounds: number;              // 1 on the first try; goes up by one with every Replay
   earlierGuesses: number;      // guesses made in rounds before this one
+  perSpot: boolean;            // feedback marks under each ship (true) or totals at the end of the row
 };
 
 export type Action =
@@ -28,6 +29,8 @@ export type Action =
   | { type: 'GUESS_SCORED'; guess: Ship[]; feedback: Feedback; status: Status; answer: Ship[] | null }
   | { type: 'HINT_GIVEN'; ship: Ship }
   | { type: 'REPLAY' }
+  | { type: 'GAVE_UP'; answer: Ship[] }   // practice only: end the game and show the fleet
+  | { type: 'SET_PER_SPOT'; perSpot: boolean } // practice only: the feedback toggle
   | { type: 'LOAD'; state: GameState };
 
 function emptyRow(mode: Mode): (Ship | null)[] {
@@ -43,6 +46,7 @@ export function newGame(dateKey: string, mode: Mode, ruledOut: Ship[] = []): Gam
     ruledOut: [...ruledOut], hintsUsed: 0,
     status: 'playing', answer: null,
     rounds: 1, earlierGuesses: 0,
+    perSpot: MODES[mode].perSpot,
   };
 }
 
@@ -78,7 +82,12 @@ export function reducer(state: GameState, action: Action): GameState {
     };
   }
 
+  // Only changes how feedback is drawn, so it works at any time, even after the game is over.
+  if (action.type === 'SET_PER_SPOT') return { ...state, perSpot: action.perSpot };
+
   if (state.status !== 'playing') return state; // the board is frozen once the game is over
+
+  if (action.type === 'GAVE_UP') return { ...state, status: 'lost', answer: action.answer, cursor: null };
 
   switch (action.type) {
     case 'PICK_SHIP': {

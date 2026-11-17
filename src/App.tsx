@@ -39,7 +39,7 @@ export function App() {
   if (view === 'fleet') return <Fleet today={today} onClose={() => setView('game')} />;
   return (
     <GameScreen
-      key={`${dateKey}:${mode}`}
+      key={mode === 'practice' ? 'practice' : `${dateKey}:${mode}`}
       dateKey={dateKey}
       today={today}
       mode={mode}

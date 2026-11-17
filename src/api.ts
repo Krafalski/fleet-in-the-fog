@@ -12,8 +12,8 @@
 import { BADGES, MYSTERY_BADGE, badgesForStreak, computeStreak } from './game/badges';
 import type { BoatLook } from './Boat';
 import { testGame } from './config';
-import { MODES, MODE_LIST, isWin, nextHint, puzzleForDate, score } from './game/game';
-import type { Feedback, Mode, Ship } from './game/game';
+import { MODES, MODE_LIST, isWin, nextHint, puzzleForDate, score, scoreSpots } from './game/game';
+import type { DailyMode, Feedback, Mode, Ship } from './game/game';
 import { newGame, totalGuesses } from './game/reducer';
 import { DAYS_PER_REPAIR, daysCovered, findGap, pickRepairs, repairsEarned } from './game/repairs';
 import type { RepairStock } from './game/repairs';
@@ -24,7 +24,7 @@ export type GuessResult = { feedback: Feedback; status: Status; answer: Ship[] |
 // One finished puzzle.
 export type DayResult = {
   dateKey: string;
-  mode: Mode;
+  mode: DailyMode;
   status: 'won' | 'lost';
   guesses: number;  // every guess made, counting rounds before a Replay, so it can pass the limit
   rounds: number;   // 1 = solved on the first try; 2 or more = used Replay
@@ -48,15 +48,16 @@ export type DayStats = { average: number; players: number };
 
 // Numbers for the fleet screen. Averages count solved puzzles only; null = nothing to average yet.
 export type Stats = {
-  you: Record<Mode, { average: number | null; solved: number }>;
-  everyone: Record<Mode, number | null>;
+  you: Record<DailyMode, { average: number | null; solved: number }>;
+  everyone: Record<DailyMode, number | null>;
   // sightings.easy[3] = how many Easy puzzles were solved in 3 guesses. 8 also holds anything above 8.
-  sightings: Record<Mode, Record<number, number>>;
+  sightings: Record<DailyMode, Record<number, number>>;
 };
 export const MOST_GUESSES_TRACKED = 8;
 
 export type GameApi = {
   // The player's saved game for this day and mode, or a fresh one.
+  // For practice, dateKey is ignored: it returns the practice game in progress, or a new random one.
   loadGame(dateKey: string, mode: Mode): Promise<GameState>;
   // Call after every change so the player can leave and come back.
   saveGame(state: GameState): Promise<void>;
@@ -64,12 +65,14 @@ export type GameApi = {
   submitGuess(state: GameState, guess: Ship[]): Promise<GuessResult>;
   // Which ship to grey out, or null if there is nothing left to rule out.
   askHint(state: GameState): Promise<Ship | null>;
+  // Practice only: the answer, for Give up.
+  revealAnswer(state: GameState): Promise<Ship[]>;
   // Call once when a game ends. Saves the result and hands out any new badge boats.
   recordResult(state: GameState, today: string): Promise<Outcome>;
   // Finished puzzles for these days, for the harbor log.
-  loadResults(dateKeys: string[], mode: Mode): Promise<Record<string, DayResult | undefined>>;
+  loadResults(dateKeys: string[], mode: DailyMode): Promise<Record<string, DayResult | undefined>>;
   // Both modes' results for one day, for the end-of-game panel.
-  loadDay(dateKey: string): Promise<Record<Mode, DayResult | undefined>>;
+  loadDay(dateKey: string): Promise<Record<DailyMode, DayResult | undefined>>;
   // Averages and creature sightings, for the fleet screen.
   loadStats(): Promise<Stats>;
   // Streak and badge boats, for the fleet screen.
@@ -104,7 +107,10 @@ function write(key: string, value: unknown): void {
 
 // Test games get their own storage, so flipping testGame never mixes them with real games.
 export const STORE = testGame ? 'fog-test' : 'fog';
-const gameKey = (dateKey: string, mode: Mode) => `${STORE}:game:${dateKey}:${mode}`;
+// There is only ever one practice game in progress, so it has one fixed key.
+const gameKey = (dateKey: string, mode: Mode) => (mode === 'practice' ? `${STORE}:practice` : `${STORE}:game:${dateKey}:${mode}`);
+// A made-up key that seeds a new random practice puzzle.
+export const newPracticeKey = () => `practice-${Date.now()}`;
 const RESULTS_KEY = `${STORE}:results`; // { '2026-11-15:easy': DayResult }
 const BADGES_KEY = `${STORE}:badges`;   // { paper: '2026-11-15' }
 const LOOKS_KEY = `${STORE}:looks`;     // { paper: 'year2' }
@@ -159,6 +165,11 @@ function awardStreakBadges(streak: number, today: string, extra: string[] = []):
 
 export const localApi: GameApi = {
   async loadGame(dateKey, mode) {
+    if (mode === 'practice') {
+      const saved = read<Partial<GameState> | null>(gameKey(dateKey, mode), null);
+      const fresh = newGame(saved?.dateKey ?? newPracticeKey(), mode);
+      return saved ? { ...fresh, ...saved } : fresh;
+    }
     const fresh = newGame(dateKey, mode, puzzleForDate(dateKey, mode).ruledOut);
     const saved = read<Partial<GameState> | null>(gameKey(dateKey, mode), null);
     // Start from a fresh game so a save from an older version still has every field.
@@ -171,7 +182,7 @@ export const localApi: GameApi = {
 
   async submitGuess(state, guess) {
     const { code } = puzzleForDate(state.dateKey, state.mode);
-    const feedback = score(guess, code);
+    const feedback: Feedback = { ...score(guess, code), spots: scoreSpots(guess, code) };
     const guessesMade = state.guesses.length + 1;
     const status: Status = isWin(feedback, state.mode)
       ? 'won'
@@ -183,17 +194,22 @@ export const localApi: GameApi = {
 
   async askHint(state) {
     const { code } = puzzleForDate(state.dateKey, state.mode);
-    return nextHint(code, state.ruledOut);
+    return nextHint(code, state.ruledOut, MODES[state.mode].ships);
+  },
+
+  async revealAnswer(state) {
+    return puzzleForDate(state.dateKey, state.mode).code;
   },
 
   async recordResult(state, today) {
     const results = read<Record<string, DayResult>>(RESULTS_KEY, {});
     const key = `${state.dateKey}:${state.mode}`;
-    if (state.status === 'playing' || results[key]) {
+    // Practice never counts.
+    if (state.status === 'playing' || results[key] || state.mode === 'practice') {
       return { streak: streakFrom(results, today), newBadges: [] }; // nothing new to record
     }
     results[key] = {
-      dateKey: state.dateKey, mode: state.mode, status: state.status,
+      dateKey: state.dateKey, mode: state.mode as DailyMode, status: state.status,
       guesses: totalGuesses(state), rounds: state.rounds, hints: state.hintsUsed, playedOn: today,
     };
     write(RESULTS_KEY, results);

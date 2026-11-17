@@ -8,10 +8,10 @@ import type { GameState } from '../game/reducer';
 
 // How often one of the shapes in the fog changes.
 const SHAPE_CHANGE_MS = 3200;
-const randomShip = (): Ship => Math.floor(Math.random() * SHIP_COUNT);
 
 export function FogCard({ state, boatSize }: { state: GameState; boatSize: number }) {
-  const { slots } = MODES[state.mode];
+  const { slots, ships } = MODES[state.mode];
+  const randomShip = (): Ship => Math.floor(Math.random() * Math.min(ships, SHIP_COUNT));
   const over = state.status !== 'playing';
 
   // While the fleet is hidden, each spot shows a faint ship shape. They are picked at random

@@ -6,13 +6,13 @@ import type { DayResult } from '../api';
 import { CloseButton } from '../components/TopBar';
 import { addDays, formatDate, weekStart, weekdayName } from '../game/dates';
 import { LAUNCH_DATE, MODES, MODE_LIST } from '../game/game';
-import type { Mode } from '../game/game';
+import type { DailyMode, Mode } from '../game/game';
 
 type Props = { today: string; onPick: (dateKey: string, mode: Mode) => void; onClose: () => void };
-type Day = Record<Mode, DayResult | undefined>;
+type Day = Record<DailyMode, DayResult | undefined>;
 
 // Which board a tap on this day opens.
-function modeToOpen(day: Day | undefined): Mode {
+function modeToOpen(day: Day | undefined): DailyMode {
   const easyPlayed = day?.easy !== undefined;
   return easyPlayed ? 'hard' : 'easy'; // neither or only Hard played: Easy. Easy played (with or without Hard): Hard.
 }

@@ -47,22 +47,22 @@ export const SPARE_NAMES: Record<SpareKind, string> = {
 const DRAWINGS: Record<BoatKind, ReactElement> = {
   // game ships
   yacht: (
-    <><g transform="translate(40 0) scale(-1 1)"><line x1="20" y1="3" x2="20" y2="22" stroke="#3E4A47" strokeWidth="1.5" /><path d="M21 4 L21 21 L32 21 Z" fill="#B5543B" /><path d="M19 8 L19 21 L11 21 Z" fill="#E3B98F" /><path d="M3 22 H37 L33 28 H7 Z" fill="#3E4A47" /></g></>
+    <><g transform="translate(40 0) scale(-1 1)"><line x1="20" y1="3" x2="20" y2="22" stroke="#3E4A47" strokeWidth="1.5" /><path d="M21 4 L21 21 L32 21 Z" fill="#DE5B8C" /><path d="M19 8 L19 21 L11 21 Z" fill="#F4B9CD" /><path d="M3 22 H37 L33 28 H7 Z" fill="#3E4A47" /></g></>
   ),
   tug: (
-    <><rect x="20" y="7" width="4" height="7" fill="#1F2A2A" /><rect x="13" y="13" width="15" height="9" rx="1.5" fill="#E8D9B0" /><rect x="16" y="15" width="3" height="3" fill="#2E4A6B" /><rect x="22" y="15" width="3" height="3" fill="#2E4A6B" /><path d="M4 22 H36 L32 28 H8 Z" fill="#2E4A6B" /></>
+    <><rect x="20" y="7" width="4" height="7" fill="#1F2A2A" /><rect x="13" y="13" width="15" height="9" rx="1.5" fill="#E8D9B0" /><rect x="16" y="15" width="3" height="3" fill="#2E4A6B" /><rect x="22" y="15" width="3" height="3" fill="#2E4A6B" /><path d="M4 22 H36 L32 28 H8 Z" fill="#2D5C9C" /></>
   ),
   mailboat: (
-    <><rect x="13" y="7" width="4" height="8" fill="#1F2A2A" /><rect x="23" y="7" width="4" height="8" fill="#1F2A2A" /><rect x="9" y="15" width="22" height="6" fill="#F1E6CC" /><path d="M2 21 H38 L34 28 H6 Z" fill="#B5543B" /><circle cx="20" cy="24.5" r="1.8" fill="#F1E6CC" /></>
+    <><rect x="13" y="7" width="4" height="8" fill="#1F2A2A" /><rect x="23" y="7" width="4" height="8" fill="#1F2A2A" /><rect x="9" y="15" width="22" height="6" fill="#F1E6CC" /><path d="M2 21 H38 L34 28 H6 Z" fill="#C93C2C" /><circle cx="20" cy="24.5" r="1.8" fill="#F1E6CC" /></>
   ),
   schooner: (
-    <><g transform="translate(40 0) scale(-1 1)"><line x1="14" y1="4" x2="14" y2="22" stroke="#2F3B3A" strokeWidth="1.5" /><line x1="25" y1="2" x2="25" y2="22" stroke="#2F3B3A" strokeWidth="1.5" /><path d="M15 5 L15 21 L23 21 Z" fill="#3F6E68" /><path d="M26 3 L26 21 L35 21 Z" fill="#3F6E68" /><path d="M13 8 L13 21 L6 21 Z" fill="#9DBDB6" /><path d="M3 22 H37 L33 28 H7 Z" fill="#2F3B3A" /></g></>
+    <><g transform="translate(40 0) scale(-1 1)"><line x1="14" y1="4" x2="14" y2="22" stroke="#2F3B3A" strokeWidth="1.5" /><line x1="25" y1="2" x2="25" y2="22" stroke="#2F3B3A" strokeWidth="1.5" /><path d="M15 5 L15 21 L23 21 Z" fill="#24A158" /><path d="M26 3 L26 21 L35 21 Z" fill="#24A158" /><path d="M13 8 L13 21 L6 21 Z" fill="#A3E0B4" /><path d="M3 22 H37 L33 28 H7 Z" fill="#2F3B3A" /></g></>
   ),
   fisher: (
-    <><g transform="translate(40 0) scale(-1 1)"><line x1="12" y1="5" x2="12" y2="22" stroke="#3E4A47" strokeWidth="1.5" /><line x1="12" y1="6" x2="20.5" y2="12.5" stroke="#3E4A47" strokeWidth="1" /><rect x="21" y="13" width="11" height="9" fill="#F1E6CC" /><rect x="20" y="12" width="13" height="1.5" fill="#3E4A47" /><rect x="23.5" y="15.5" width="6" height="3" fill="#3E4A47" /><path d="M3 22 H37 L33 28 H7 Z" fill="#D9A441" /></g></>
+    <><g transform="translate(40 0) scale(-1 1)"><line x1="12" y1="5" x2="12" y2="22" stroke="#3E4A47" strokeWidth="1.5" /><line x1="12" y1="6" x2="20.5" y2="12.5" stroke="#3E4A47" strokeWidth="1" /><rect x="21" y="13" width="11" height="9" fill="#F1E6CC" /><rect x="20" y="12" width="13" height="1.5" fill="#3E4A47" /><rect x="23.5" y="15.5" width="6" height="3" fill="#3E4A47" /><path d="M3 22 H37 L33 28 H7 Z" fill="#EBB12A" /></g></>
   ),
   junk: (
-    <><path d="M12 4 Q28 1 31 12 L31 22.5 L13.1 22.5 Z" fill="#6B5577" /><line x1="12.4" y1="9" x2="29.5" y2="9" stroke="#F1E6CC" strokeWidth="1" /><line x1="12.7" y1="13.5" x2="31" y2="13.5" stroke="#F1E6CC" strokeWidth="1" /><line x1="12.9" y1="18" x2="31" y2="18" stroke="#F1E6CC" strokeWidth="1" /><path d="M2 21 Q20 23 38 20 L33 28 H8 Z" fill="#3E4A47" /></>
+    <><path d="M12 4 Q28 1 31 12 L31 22.5 L13.1 22.5 Z" fill="#7A4A9C" /><line x1="12.4" y1="9" x2="29.5" y2="9" stroke="#F1E6CC" strokeWidth="1" /><line x1="12.7" y1="13.5" x2="31" y2="13.5" stroke="#F1E6CC" strokeWidth="1" /><line x1="12.9" y1="18" x2="31" y2="18" stroke="#F1E6CC" strokeWidth="1" /><path d="M2 21 Q20 23 38 20 L33 28 H8 Z" fill="#3E4A47" /></>
   ),
   // badge boats
   paper: (

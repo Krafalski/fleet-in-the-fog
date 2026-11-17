@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { MAX_REPEATS } from '../config';
-import { MODES, dateKeyFor, isWin, leaderboardScore, nextHint, puzzleForDate, score } from './game';
+import { MODES, dateKeyFor, isWin, leaderboardScore, nextHint, puzzleForDate, randomCode, score, scoreSpots } from './game';
 import type { Mode } from './game';
 
 describe('score', () => {
@@ -103,5 +103,44 @@ describe('leaderboardScore', () => {
   });
   test('a very long time cannot spill into the guesses part', () => {
     expect(leaderboardScore(4, 50000)).toBeLessThan(leaderboardScore(5, 0));
+  });
+});
+
+describe('scoreSpots', () => {
+  test('marks each spot: right spot, wrong spot, or not in the fleet', () => {
+    expect(scoreSpots([0, 1, 2, 3], [0, 2, 4, 4])).toEqual(['exact', 'miss', 'near', 'miss']);
+  });
+  test('a ship is only matched once', () => {
+    // one junk (1) in the fleet, two in the guess: only the first gets a mark
+    expect(scoreSpots([1, 1, 0, 0], [2, 3, 1, 4])).toEqual(['near', 'miss', 'miss', 'miss']);
+    // the exact match is used first, so the other junk gets nothing
+    expect(scoreSpots([1, 0, 1, 0], [2, 3, 1, 4])).toEqual(['miss', 'miss', 'exact', 'miss']);
+  });
+  test('agrees with the totals', () => {
+    const guess = [3, 3, 1, 0, 5], code = [3, 1, 3, 5, 2];
+    const spots = scoreSpots(guess, code);
+    const { exact, near } = score(guess, code);
+    expect(spots.filter((s) => s === 'exact').length).toBe(exact);
+    expect(spots.filter((s) => s === 'near').length).toBe(near);
+  });
+});
+
+describe('easy leaves out the yacht', () => {
+  test('easy puzzles never use ship 5, and hints stay within ships 0-4', () => {
+    for (let d = 1; d <= 28; d++) {
+      const day = `2026-12-${String(d).padStart(2, '0')}`;
+      expect(puzzleForDate(day, 'easy').code.includes(5)).toBe(false);
+    }
+    expect(nextHint([0, 1, 2, 3], [], MODES.easy.ships)).toBe(4);
+    expect(nextHint([0, 1, 2, 3], [4], MODES.easy.ships)).toBe(null);
+  });
+  test('randomCode only picks from the ships in play', () => {
+    let n = 0;
+    const rand = () => ((n = (n * 9301 + 49297) % 233280) / 233280);
+    for (let i = 0; i < 50; i++) expect(randomCode(4, rand, 5).every((s) => s < 5)).toBe(true);
+  });
+  test('practice puzzles differ from game to game', () => {
+    const a = puzzleForDate('practice-1', 'practice').code.join(), b = puzzleForDate('practice-2', 'practice').code.join();
+    expect(a === b).toBe(false);
   });
 });

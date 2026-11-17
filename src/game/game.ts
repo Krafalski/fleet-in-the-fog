@@ -9,12 +9,18 @@ import { addDays } from './dates';
 export type Ship = number;
 export const SHIP_COUNT = 6;
 
-export type Mode = 'easy' | 'hard';
-export const MODE_LIST: Mode[] = ['easy', 'hard'];
+// The two daily puzzles. Practice is a third mode that is never recorded.
+export type DailyMode = 'easy' | 'hard';
+export type Mode = DailyMode | 'practice';
+export const MODE_LIST: DailyMode[] = ['easy', 'hard'];
 
-export const MODES: Record<Mode, { slots: number; maxGuesses: number; label: string }> = {
-  easy: { slots: 4, maxGuesses: 8, label: 'Easy' },
-  hard: { slots: 5, maxGuesses: 10, label: 'Hard' },
+// slots = spots in a row. ships = how many kinds of ship are in play (Easy leaves out ship 5, the yacht).
+// perSpot = feedback marks sit under each ship (true) or are only totals at the end of the row (false).
+// Practice lets the player switch perSpot with a toggle; this is only its starting value.
+export const MODES: Record<Mode, { slots: number; ships: number; maxGuesses: number; perSpot: boolean; label: string }> = {
+  easy: { slots: 4, ships: 5, maxGuesses: 8, perSpot: true, label: 'Easy' },
+  hard: { slots: 5, ships: 6, maxGuesses: 10, perSpot: false, label: 'Hard' },
+  practice: { slots: 5, ships: 6, maxGuesses: 10, perSpot: true, label: 'Practice' },
 };
 
 // In test games every spot holds this ship (1 = junk). See config.ts.
@@ -24,7 +30,9 @@ const TEST_SHIP: Ship = 1;
 export const LAUNCH_DATE = '2026-11-06';
 
 
-export type Feedback = { exact: number; near: number };
+// spots (when present) gives the result for each spot in order. Older saves don't have it.
+export type Spot = 'exact' | 'near' | 'miss';
+export type Feedback = { exact: number; near: number; spots?: Spot[] };
 
 // ---------- scoring ----------
 
@@ -49,6 +57,22 @@ export function score(guess: Ship[], code: Ship[]): Feedback {
     }
   }
   return { exact, near };
+}
+
+// The same scoring, spot by spot: exact = right ship here. near = this ship is elsewhere in the fleet.
+// Matches are used up left to right, so two junks in the guess with one junk in the fleet give one mark, not two.
+export function scoreSpots(guess: Ship[], code: Ship[]): Spot[] {
+  const spots: Spot[] = guess.map((ship, i) => (ship === code[i] ? 'exact' : 'miss'));
+  const left = code.filter((_, i) => spots[i] !== 'exact');
+  guess.forEach((ship, i) => {
+    if (spots[i] === 'exact') return;
+    const at = left.indexOf(ship);
+    if (at !== -1) {
+      spots[i] = 'near';
+      left.splice(at, 1);
+    }
+  });
+  return spots;
 }
 
 export function isWin(feedback: Feedback, mode: Mode): boolean {
@@ -84,20 +108,22 @@ export type Puzzle = {
 // dateKey looks like '2026-11-15'. Everyone gets the same puzzle for the same date and mode.
 // IMPORTANT: in the real game, call this on the server only, so nobody can read the answer.
 export function puzzleForDate(dateKey: string, mode: Mode): Puzzle {
-  const { slots } = MODES[mode];
-  if (testGame) return { code: new Array<Ship>(slots).fill(TEST_SHIP), ruledOut: [] };
-  return { code: randomCode(slots, seededRandom(hashString(`fleet-in-the-fog:${dateKey}:${mode}`))), ruledOut: [] };
+  const { slots, ships } = MODES[mode];
+  // Practice games pass a made-up key (like 'practice-1763391234567') instead of a date, so each one is new.
+  if (testGame && mode !== 'practice') return { code: new Array<Ship>(slots).fill(TEST_SHIP), ruledOut: [] };
+  return { code: randomCode(slots, seededRandom(hashString(`fleet-in-the-fog:${dateKey}:${mode}`)), ships), ruledOut: [] };
 }
 
 // Picks ships one spot at a time, never using one ship more than MAX_REPEATS times.
 // `rand` returns a number from 0 up to (not including) 1, like Math.random.
-export function randomCode(slots: number, rand: () => number): Ship[] {
+// `ships` = how many kinds are in play (ships 0 up to ships-1).
+export function randomCode(slots: number, rand: () => number, ships = SHIP_COUNT): Ship[] {
   // Never fewer repeats than it takes to fill the row, or the loop below could not finish.
-  const maxRepeats = Math.max(1, MAX_REPEATS, Math.ceil(slots / SHIP_COUNT));
+  const maxRepeats = Math.max(1, MAX_REPEATS, Math.ceil(slots / ships));
   const code: Ship[] = [];
-  const used = new Array<number>(SHIP_COUNT).fill(0);
+  const used = new Array<number>(ships).fill(0);
   while (code.length < slots) {
-    const ship = Math.floor(rand() * SHIP_COUNT);
+    const ship = Math.floor(rand() * ships);
     if (used[ship] >= maxRepeats) continue; // roll again
     used[ship]++;
     code.push(ship);
@@ -107,8 +133,8 @@ export function randomCode(slots: number, rand: () => number): Ship[] {
 
 // Ships a hint could grey out next: not in the code and not already greyed out.
 // The hint always gives the lowest-numbered one, so it is the same for every player.
-export function nextHint(code: Ship[], ruledOut: Ship[]): Ship | null {
-  for (let s = 0; s < SHIP_COUNT; s++) {
+export function nextHint(code: Ship[], ruledOut: Ship[], ships = SHIP_COUNT): Ship | null {
+  for (let s = 0; s < ships; s++) {
     if (!code.includes(s) && !ruledOut.includes(s)) return s;
   }
   return null;

@@ -105,3 +105,20 @@ describe('alreadyGuessed', () => {
     expect(alreadyGuessed(s)).toBe(false);
   });
 });
+
+describe('practice actions', () => {
+  test('giving up ends the game and shows the answer', () => {
+    const s = reducer(newGame('practice-1', 'practice'), { type: 'GAVE_UP', answer: [0, 1, 2, 3, 4] });
+    expect(s.status).toBe('lost');
+    expect(s.answer).toEqual([0, 1, 2, 3, 4]);
+  });
+  test('the feedback toggle works even after the game is over', () => {
+    let s = reducer(newGame('practice-1', 'practice'), { type: 'GAVE_UP', answer: [0, 1, 2, 3, 4] });
+    s = reducer(s, { type: 'SET_PER_SPOT', perSpot: false });
+    expect(s.perSpot).toBe(false);
+  });
+  test('each mode starts with its own feedback style', () => {
+    expect(newGame('2026-11-17', 'easy').perSpot).toBe(true);
+    expect(newGame('2026-11-17', 'hard').perSpot).toBe(false);
+  });
+});

@@ -40,7 +40,7 @@ h1, h2, p { margin: 0; }
 
 /* ---------- slot sizes per difficulty ---------- */
 .game--easy   { --slot-w: 56px; --slot-h: 46px; --slot-gap: 8px; }
-.game--hard   { --slot-w: 48px; --slot-h: 44px; --slot-gap: 6px; }
+.game--hard, .game--practice { --slot-w: 48px; --slot-h: 44px; --slot-gap: 6px; }
 
 /* ---------- fog card ---------- */
 .fog-card { position: relative; overflow: hidden; background: var(--panel); border-radius: 18px; padding: 10px 10px 12px; }
@@ -244,3 +244,38 @@ h1, h2, p { margin: 0; }
 /* "Already played": a short shake and a different color, then it goes back to Log guess. */
 .primary-btn--repeat { background: var(--rust); animation: shake 380ms ease; }
 @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+
+/* ---------- feedback under each ship (Easy, and Practice when chosen) ---------- */
+/* The marks sit on the water at the bottom of the row, one under each spot. */
+.spot-marks { position: absolute; left: 0; right: 0; bottom: 2px; display: flex; gap: var(--slot-gap); padding: 0 6px; pointer-events: none; z-index: 2; }
+.spot-marks__cell { width: var(--slot-w); display: flex; justify-content: center; }
+.peg--small { width: 8px; height: 8px; }
+.peg--near.peg--small { border-width: 2px; }
+.spot-marks .peg--miss { width: 5px; height: 5px; margin-top: 1.5px; background: var(--ink); opacity: 0.3; }
+.legend .peg--miss.peg--small { width: 5px; height: 5px; background: var(--ink); opacity: 0.3; }
+.pegs--none { width: 0; }
+.legend__note { margin-top: -4px; text-align: center; font-size: 12px; color: var(--ink-muted); }
+
+/* Easy has 5 ships, so the picker has 5 columns. */
+.picker--5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+
+/* Practice: the feedback toggle under the mode switch. */
+.feedback-toggle { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 12px; color: var(--ink-muted); }
+.feedback-toggle button { padding: 5px 10px; border-radius: 999px; border: 1px solid var(--outline-soft); background: transparent; color: var(--ink); font-size: 12px; font-weight: 600; }
+.feedback-toggle button.is-on { background: var(--ink); border-color: var(--ink); color: var(--on-ink); }
+
+/* ---------- anchors under each ship (Easy, and Practice "Under each ship") ---------- */
+.spot-marks { bottom: 0; }
+.spot-anchor { display: flex; }
+.spot-anchor--reveal { animation: anchorDrop 320ms cubic-bezier(.3, 1.5, .5, 1) both; animation-delay: calc(var(--i) * 140ms); }
+@keyframes anchorDrop { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+.anchor-mark--exact .anchor-mark__edge { stroke: var(--paper); }
+.anchor-mark--exact .anchor-mark__body { stroke: var(--soot); }
+.anchor-mark--near .anchor-mark__edge { stroke: var(--soot); }
+.anchor-mark--near .anchor-mark__body { stroke: #FFFFFF; }
+.legend .anchor-mark { flex: none; }
+.legend__none { color: var(--ink-muted); }
+/* With anchors the legend has three items; let the guess count drop to its own line instead of squeezing. */
+.legend { flex-wrap: wrap; row-gap: 4px; }
+.legend span, .legend strong { white-space: nowrap; }
+.legend strong { margin-left: auto; }

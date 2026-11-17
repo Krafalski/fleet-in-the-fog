@@ -10,7 +10,7 @@ import { MOST_GUESSES_TRACKED, api } from '../api';
 import type { DayResult, DayStats, Outcome, RepairOffer } from '../api';
 import { BADGES } from '../game/badges';
 import { MODES } from '../game/game';
-import type { Mode } from '../game/game';
+import type { DailyMode, Mode } from '../game/game';
 import { totalGuesses } from '../game/reducer';
 import type { GameState } from '../game/reducer';
 import type { RepairStock } from '../game/repairs';
@@ -26,7 +26,7 @@ type Props = {
 };
 
 export function DayPanel({ state, outcome, today, onMode, onOpenLog, onOpenFleet }: Props) {
-  const [day, setDay] = useState<Record<Mode, DayResult | undefined> | null>(null);
+  const [day, setDay] = useState<Record<DailyMode, DayResult | undefined> | null>(null);
   const [streak, setStreak] = useState<number | null>(null);
   const [badges, setBadges] = useState<Record<string, string>>({}); // badge kind -> day earned
   const [everyone, setEveryone] = useState<DayStats | null>(null);
@@ -52,14 +52,14 @@ export function DayPanel({ state, outcome, today, onMode, onOpenLog, onOpenFleet
   }
 
   // The first finished game is the one that counts. Until it has loaded, show the game on screen.
-  const counted = day?.[state.mode];
+  const counted = day?.[state.mode as DailyMode];
   const won = counted ? counted.status === 'won' : state.status === 'won';
   const guesses = counted ? counted.guesses : totalGuesses(state);
   const hints = counted ? counted.hints : state.hintsUsed;
   // The board on screen can be a Replay, which may end differently from the game that counts.
   const playedAgain = state.rounds > 1 || (counted !== undefined && state.rounds > (counted.rounds ?? 1));
 
-  const other: Mode = state.mode === 'easy' ? 'hard' : 'easy';
+  const other: DailyMode = state.mode === 'easy' ? 'hard' : 'easy';
   const otherPlayed = day !== null && day[other] !== undefined;
 
   // Spot 1: the creature for this many guesses. The seal covers 8 and up. Greyed out on a loss.

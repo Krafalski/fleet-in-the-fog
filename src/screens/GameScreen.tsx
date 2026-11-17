@@ -1,10 +1,12 @@
 // The main screen: title bar, difficulty switch, the fog, Log guess, the board, the picker.
 // When the game is over, the board, picker and Hint give way to the day's numbers (DayPanel).
 // The finished board is one tap away ("Show my guesses"), shown locked so it can't be mistaken for a live game.
+// Practice is different: a random fleet that never counts, with New game, Give up and a feedback toggle,
+// and the board stays on screen when it ends.
 import { useEffect, useReducer, useRef, useState } from 'react';
-import { api } from '../api';
+import { api, newPracticeKey } from '../api';
 import type { Outcome } from '../api';
-import { Board } from '../components/Board';
+import { AnchorMark, Board } from '../components/Board';
 import { DayPanel } from '../components/DayPanel';
 import { FogCard } from '../components/FogCard';
 import { ShipPicker } from '../components/ShipPicker';
@@ -17,7 +19,7 @@ import { alreadyGuessed, canLogGuess, newGame, reducer, totalGuesses } from '../
 import type { Action } from '../game/reducer';
 
 // Boats shrink a little as rows get longer.
-const BOAT_SIZE: Record<Mode, number> = { easy: 1.05, hard: 0.95 };
+const BOAT_SIZE: Record<Mode, number> = { easy: 1.05, hard: 0.95, practice: 0.95 };
 // The moment a game ends: pegs light up, the fog lifts, a banner shows, then the day's results take over.
 const ENDING_MS = 3400;
 // How long "Already played" stays on the Log guess button.
@@ -47,6 +49,8 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
   const repeatTimer = useRef<number | undefined>(undefined);
   useEffect(() => () => { window.clearTimeout(endTimer.current); window.clearTimeout(repeatTimer.current); }, []);
   const lastReplayTap = useRef(0);
+  const [askGiveUp, setAskGiveUp] = useState(false);
+  const practice = mode === 'practice';
 
   // Load the saved game once, then save after every change.
   useEffect(() => {
@@ -64,7 +68,7 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
   }, [loaded, state]);
 
   const over = state.status !== 'playing';
-  const replaying = state.rounds > 1; // the whole board goes grey during a replay, so it's clear it doesn't count
+  const replaying = state.rounds > 1 && !practice; // the whole board goes grey during a replay, so it's clear it doesn't count
   const { maxGuesses } = MODES[mode];
 
   async function logGuess() {
@@ -83,7 +87,7 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
     if (result.status !== 'playing') {
       setEnding(true);
       endTimer.current = window.setTimeout(() => setEnding(false), ENDING_MS);
-      setOutcome(await api.recordResult(reducer(state, action), today));
+      if (!practice) setOutcome(await api.recordResult(reducer(state, action), today));
     }
   }
 
@@ -101,8 +105,23 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
     dispatch({ type: 'REPLAY' });
   }
 
+  // Practice: a new random fleet. The feedback toggle carries over.
+  function newPractice() {
+    setAskGiveUp(false);
+    setEnding(false);
+    window.clearTimeout(endTimer.current);
+    dispatch({ type: 'LOAD', state: { ...newGame(newPracticeKey(), 'practice'), perSpot: state.perSpot } });
+  }
+
+  async function giveUp() {
+    setAskGiveUp(false);
+    dispatch({ type: 'GAVE_UP', answer: await api.revealAnswer(state) });
+  }
+
   // One tap asks first. A quick second tap means "yes, I'm sure".
+  // Practice never counts, so there it just starts over.
   function tapReplay() {
+    if (practice) return replay();
     const now = Date.now();
     if (now - lastReplayTap.current < DOUBLE_TAP_MS) replay();
     else setAskReplay(true);
@@ -114,7 +133,7 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
   const status =
     state.status === 'won' ? `Solved in ${shown}!`
     : state.status === 'lost' ? 'Slipped away'
-    : `${state.rounds > 1 ? 'Replay · ' : ''}Guess ${state.guesses.length + 1} of ${maxGuesses}`;
+    : `${replaying ? 'Replay · ' : ''}Guess ${state.guesses.length + 1} of ${maxGuesses}`;
 
   const replayConfirm = askReplay && (
     <div className="confirm" role="alertdialog" aria-label="Replay this puzzle?">
@@ -126,9 +145,41 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
     </div>
   );
 
+  const giveUpConfirm = askGiveUp && (
+    <div className="confirm" role="alertdialog" aria-label="Give up?">
+      <p><strong>Give up?</strong> The fog lifts and shows the fleet.</p>
+      <div className="confirm__buttons">
+        <button type="button" className="outline-btn" onClick={() => setAskGiveUp(false)}>Keep playing</button>
+        <button type="button" className="primary-btn primary-btn--small" onClick={giveUp}>Show the fleet</button>
+      </div>
+    </div>
+  );
+
+  // The legend matches how feedback is drawn right now.
+  const legend = (
+    <div className="legend">
+      {state.perSpot ? (
+        <>
+          <span><AnchorMark kind="exact" size={18} />Right spot</span>
+          <span><AnchorMark kind="near" size={18} />Wrong spot</span>
+          <span className="legend__none">None: not in fleet</span>
+        </>
+      ) : (
+        <>
+          <span><i className="peg peg--exact" />Right ship, right spot</span>
+          <span><i className="peg peg--near" />Wrong spot</span>
+        </>
+      )}
+      {!over && <strong>{status}</strong>}
+    </div>
+  );
+  const legendNote = state.perSpot
+    ? <p className="legend__note">Each mark sits under its ship.</p>
+    : <p className="legend__note">Marks are totals for the row, in no order.</p>;
+
   return (
     <main className={`screen game game--${mode}${testGame ? ' is-test' : ''}${replaying ? ' is-replay' : ''}`}>
-      <TopBar subtitle={`Harbor log · ${formatDate(dateKey)}`} onOpenLog={onOpenLog} onOpenFleet={onOpenFleet} />
+      <TopBar subtitle={practice ? 'Practice · a new fleet every game' : `Harbor log · ${formatDate(dateKey)}`} onOpenLog={onOpenLog} onOpenFleet={onOpenFleet} />
 
       <div className="segmented" role="group" aria-label="Difficulty">
         {MODE_LIST.map((m) => (
@@ -136,21 +187,67 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
             {MODES[m].label} · {MODES[m].slots}
           </button>
         ))}
+        <button type="button" className={practice ? 'is-on' : undefined} aria-pressed={practice} onClick={() => onMode('practice')}>
+          Practice
+        </button>
       </div>
+
+      {practice && (
+        <div className="feedback-toggle" role="group" aria-label="Feedback">
+          <span>Feedback</span>
+          <button type="button" className={state.perSpot ? 'is-on' : undefined} aria-pressed={state.perSpot} onClick={() => dispatch({ type: 'SET_PER_SPOT', perSpot: true })}>Under each ship</button>
+          <button type="button" className={!state.perSpot ? 'is-on' : undefined} aria-pressed={!state.perSpot} onClick={() => dispatch({ type: 'SET_PER_SPOT', perSpot: false })}>Totals only</button>
+        </div>
+      )}
 
       <FogCard state={state} boatSize={BOAT_SIZE[mode]} />
 
-      {over && !ending ? (
+      {practice ? (
+        <>
+          {ending ? (
+            <button type="button" className={`end-banner end-banner--${state.status}`} onClick={() => { window.clearTimeout(endTimer.current); setEnding(false); }}>
+              <strong>{state.status === 'won' ? 'Fleet found!' : 'The fleet slipped away'}</strong>
+              <span>{state.status === 'won' ? `Solved in ${state.guesses.length}` : 'The fog lifts…'}</span>
+            </button>
+          ) : over ? (
+            <button type="button" className="primary-btn" onClick={newPractice}>
+              {state.status === 'won' ? `Solved in ${state.guesses.length}! · New game` : 'New game'}
+            </button>
+          ) : (
+            <button type="button" className={`primary-btn${repeat ? ' primary-btn--repeat' : ''}`} onClick={logGuess} disabled={!canLogGuess(state)}>
+              {repeat ? 'Already played' : 'Log guess'}
+            </button>
+          )}
+
+          <Board state={state} boatSize={BOAT_SIZE[mode]} onTapSlot={(slot) => dispatch({ type: 'TAP_SLOT', slot })} lastRow={ending ? state.status : undefined} />
+          {legend}
+          {legendNote}
+          <ShipPicker ships={MODES[mode].ships} ruledOut={state.ruledOut} disabled={over} onPick={(ship) => dispatch({ type: 'PICK_SHIP', ship })} />
+
+          {!ending && (
+            <div className="actions">
+              {giveUpConfirm}
+              <div className="actions__left">
+                {!over && (
+                  <button type="button" className="outline-btn" onClick={useHint}>
+                    {state.hintsUsed ? `Hint · ${state.hintsUsed} used` : 'Hint'}
+                  </button>
+                )}
+                <button type="button" className="outline-btn" onClick={tapReplay}>Replay</button>
+                {!over && <button type="button" className="outline-btn" onClick={newPractice}>New game</button>}
+              </div>
+              {!over && <button type="button" className="link-btn" onClick={() => setAskGiveUp(true)}>Give up</button>}
+            </div>
+          )}
+        </>
+      ) : over && !ending ? (
         <>
           {showGuesses ? (
             <section className="board-final" aria-label="Finished board">
               <button type="button" className="outline-btn" onClick={() => setShowGuesses(false)}>Back to the day's results</button>
               <p className="board-final__tag">Finished board · {state.status === 'won' ? 'solved' : 'slipped away'} · can't be changed</p>
               <Board state={state} boatSize={BOAT_SIZE[mode]} onTapSlot={() => {}} />
-              <div className="legend">
-                <span><i className="peg peg--exact" />Right ship, right spot</span>
-                <span><i className="peg peg--near" />Wrong spot</span>
-              </div>
+              {legend}
             </section>
           ) : (
             <>
@@ -182,13 +279,10 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
           {testGame && <p className="test-tag">Test game: the answer is all junks</p>}
           <Board state={state} boatSize={BOAT_SIZE[mode]} onTapSlot={(slot) => dispatch({ type: 'TAP_SLOT', slot })} lastRow={ending ? state.status : undefined} />
 
-          <div className="legend">
-            <span><i className="peg peg--exact" />Right ship, right spot</span>
-            <span><i className="peg peg--near" />Wrong spot</span>
-            <strong>{status}</strong>
-          </div>
+          {legend}
+          {state.guesses.length === 0 && legendNote}
 
-          <ShipPicker ruledOut={state.ruledOut} disabled={over} onPick={(ship) => dispatch({ type: 'PICK_SHIP', ship })} />
+          <ShipPicker ships={MODES[mode].ships} ruledOut={state.ruledOut} disabled={over} onPick={(ship) => dispatch({ type: 'PICK_SHIP', ship })} />
 
           {!ending && (
             <div className="actions">
