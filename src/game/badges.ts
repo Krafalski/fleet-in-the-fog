@@ -48,6 +48,13 @@ export function yearsEarned(days: number, streak: number): number {
   return Math.min(MOST_YEARS, 1 + Math.floor((streak - days) / DAYS_PER_YEAR));
 }
 
+// Every step of the streak ladder in the order it's reached: each boat in year 1, then each boat's
+// year-2 colors, then year 3. `day` is the streak length that reaches it.
+export type Milestone = { kind: string; name: string; year: number; day: number };
+export const MILESTONES: Milestone[] = [1, 2, 3]
+  .flatMap((year) => BADGES.filter((b) => b.days !== null).map((b) => ({ kind: b.kind, name: b.name, year, day: b.days! + (year - 1) * DAYS_PER_YEAR })))
+  .sort((a, b) => a.day - b.day);
+
 // The final award, the Fleet Admiral cup: earned the day after the last boat (the Golden galleon)
 // finishes its third year, so a streak of 360 + 720 + 1 = 1081 days.
 export const TROPHY_DAYS = Math.max(...BADGES.map((b) => b.days ?? 0)) + (MOST_YEARS - 1) * DAYS_PER_YEAR + 1;

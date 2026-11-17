@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { badgesForStreak, computeStreak, yearsEarned } from './badges';
+import { MILESTONES, badgesForStreak, computeStreak, yearsEarned } from './badges';
 import { addDays, formatDate, weekStart, weekdayName } from './dates';
 
 describe('dates', () => {
@@ -49,5 +49,14 @@ describe('yearsEarned', () => {
     expect(yearsEarned(30, 390)).toBe(2);
     expect(yearsEarned(30, 750)).toBe(3);
     expect(yearsEarned(1, 5000)).toBe(3);
+  });
+});
+
+describe('MILESTONES', () => {
+  test('steps run in the order they are reached, colors included', () => {
+    expect(MILESTONES.length).toBe(17 * 3);
+    const last701 = [...MILESTONES].reverse().find((m) => m.day <= 701)!;
+    expect([last701.kind, last701.year, last701.day]).toEqual(['liner', 2, 690]);
+    expect(MILESTONES.find((m) => m.day > 701)!.kind).toBe('galleon');
   });
 });

@@ -5,11 +5,12 @@
 import { useEffect, useState } from 'react';
 import { Boat } from '../Boat';
 import { Trophy } from '../Trophy';
-import type { BadgeKind } from '../Boat';
+import type { BadgeKind, BoatLook } from '../Boat';
 import { Creature, CREATURE_LADDER, CREATURE_NAMES } from '../Creature';
 import { MOST_GUESSES_TRACKED, api } from '../api';
 import type { DayResult, DayStats, Outcome, RepairOffer } from '../api';
-import { BADGES } from '../game/badges';
+import { BADGES, MILESTONES } from '../game/badges';
+import type { Milestone } from '../game/badges';
 import { MODES } from '../game/game';
 import type { DailyMode, Mode } from '../game/game';
 import { totalGuesses } from '../game/reducer';
@@ -74,13 +75,22 @@ export function DayPanel({ state, outcome, today, onMode, onOpenLog, onOpenFleet
   // Spot 2: a boat earned with this game, if there was one. BADGES is in earning order, so the last match is the biggest.
   // Otherwise it shows the last streak boat the player earned, greyed out, with how far away the next one is.
   // A player with no streak boats yet sees the first one they are working toward.
+  // Steps are ranked by the streak day that reaches them, so year-2 and year-3 colors count as steps too:
+  // on day 701 the newest step is the ocean liner's year-2 colors (day 690), not the golden galleon (day 360).
   const earnedOn = counted?.playedOn;
-  const newBoat = earnedOn ? BADGES.filter((b) => badges[b.kind] === earnedOn).pop() : undefined;
-  const nextBoat = BADGES.find((b) => b.days !== null && !badges[b.kind]);
-  const lastBoat = BADGES.filter((b) => b.days !== null && badges[b.kind]).pop();
-  const quietBoat = lastBoat ?? nextBoat;
-  // Boats that came back in new colors with this game (a year passed for them).
-  const recolored = earnedOn ? BADGES.filter((b) => newColorsOn[b.kind] === earnedOn) : [];
+  const reachedToday: Milestone[] = earnedOn
+    ? MILESTONES.filter((m) => (m.year === 1 ? badges[m.kind] === earnedOn : newColorsOn[m.kind] === earnedOn && (years[m.kind] ?? 1) >= m.year))
+    : [];
+  const newStep = reachedToday[reachedToday.length - 1];       // the one to feature
+  const ghostToday = !!earnedOn && BADGES.some((b) => b.days === null && badges[b.kind] === earnedOn);
+  const ghost = BADGES.find((b) => b.days === null);
+  // Nothing new today: show the latest step reached, greyed, and how far the next one is.
+  const nextStep = streak !== null ? MILESTONES.find((m) => m.day > streak) : MILESTONES[0];
+  const lastStep = streak !== null ? [...MILESTONES].reverse().find((m) => m.day <= streak) : undefined;
+  const quietStep = lastStep ?? nextStep;
+  // Other boats that came back in new colors with this game (the featured one aside).
+  const recolored = reachedToday.filter((m) => m.year > 1 && m !== newStep).map((m) => BADGES.find((b) => b.kind === m.kind)!);
+  const lookFor = (year: number): BoatLook => (year >= 3 ? 'year3' : year === 2 ? 'year2' : 'color');
   const trophyToday = !!earnedOn && trophy === earnedOn;
   // Copy result: a spoiler-free grid for the day's thread. Hidden for Practice (it has no day to compare).
   const [copied, setCopied] = useState(false);
@@ -107,7 +117,7 @@ export function DayPanel({ state, outcome, today, onMode, onOpenLog, onOpenFleet
     window.setTimeout(() => setCopied(false), 2000);
   }
 
-  const daysToGo = nextBoat && nextBoat.days !== null && streak !== null ? nextBoat.days - streak : null;
+  const daysToGo = nextStep && streak !== null ? nextStep.day - streak : null;
 
   return (
     <section className="day-panel" aria-live="polite">
@@ -132,23 +142,32 @@ export function DayPanel({ state, outcome, today, onMode, onOpenLog, onOpenFleet
         </div>
         {offer ? (
           <RepairCard repairs={repairs} offer={offer} onUse={useRepair} />
-        ) : newBoat ? (
+        ) : newStep ? (
           <div className="earned__slot is-lit">
-            <Boat kind={newBoat.kind as BadgeKind} size={1.4} />
+            <Boat kind={newStep.kind as BadgeKind} look={lookFor(newStep.year)} size={1.4} />
             <div>
-              <strong>{newBoat.name}</strong>
-              <p>{newBoat.days === null ? 'Drifted in with the fog' : `New boat: ${newBoat.how}`}</p>
+              <strong>{newStep.name}</strong>
+              <p>{newStep.year === 1 ? `New boat: ${BADGES.find((b) => b.kind === newStep.kind)!.how}` : `New colors: year ${newStep.year}`}</p>
             </div>
           </div>
-        ) : quietBoat ? (
-          <div className="earned__slot">
-            <Boat kind={quietBoat.kind as BadgeKind} look="locked" size={1.4} />
+        ) : ghostToday && ghost ? (
+          <div className="earned__slot is-lit">
+            <Boat kind={ghost.kind as BadgeKind} size={1.4} />
             <div>
-              <strong>{quietBoat.name}</strong>
+              <strong>{ghost.name}</strong>
+              <p>Drifted in with the fog</p>
+            </div>
+          </div>
+        ) : quietStep ? (
+          <div className="earned__slot">
+            <Boat kind={quietStep.kind as BadgeKind} look="locked" size={1.4} />
+            <div>
+              <strong>{quietStep.name}</strong>
               <p>
-                {!nextBoat ? 'Every streak boat earned'
-                  : daysToGo !== null && daysToGo > 0 ? `${daysToGo} ${daysToGo === 1 ? 'day' : 'days'} to the ${nextBoat.name.toLowerCase()}`
-                  : `Next: ${nextBoat.name.toLowerCase()}, ${nextBoat.how}`}
+                {!nextStep ? 'Every boat, every year: the whole fleet'
+                  : daysToGo !== null && daysToGo > 0
+                    ? `${daysToGo} ${daysToGo === 1 ? 'day' : 'days'} to ${nextStep.year === 1 ? `the ${nextStep.name.toLowerCase()}` : `new colors for the ${nextStep.name.toLowerCase()}`}`
+                    : `Next: ${nextStep.name.toLowerCase()}`}
               </p>
             </div>
           </div>
@@ -159,15 +178,15 @@ export function DayPanel({ state, outcome, today, onMode, onOpenLog, onOpenFleet
         <div className="new-colors">
           <div className="new-colors__boats">
             {recolored.slice(-3).map((b) => (
-              <Boat key={b.kind} kind={b.kind as BadgeKind} look={years[b.kind] >= 3 ? 'year3' : 'year2'} size={1} />
+              <Boat key={b.kind} kind={b.kind as BadgeKind} look={lookFor(years[b.kind] ?? 2)} size={1} />
             ))}
           </div>
           <div>
             <strong>New year, new colors!</strong>
             <p>
               {recolored.length === 1
-                ? `Your ${recolored[0].name.toLowerCase()} has sailed with you for another year, and earned new colors.`
-                : `${recolored.length} boats have sailed with you for another year, and earned new colors.`}
+                ? `Your ${recolored[0].name.toLowerCase()} also sailed with you for another year, and earned new colors.`
+                : `${recolored.length} more boats sailed with you for another year, and earned new colors.`}
               {' '}Double tap a boat in your fleet to switch.
             </p>
           </div>

@@ -333,6 +333,19 @@ export function resetToday(today: string) {
   const badges = read<Record<string, string>>(BADGES_KEY, {});
   for (const kind of Object.keys(badges)) if (badges[kind] === today) delete badges[kind];
   write(BADGES_KEY, badges);
+  // New colors unlocked today go back one year; a trophy earned today is taken back.
+  const years = read<Record<string, number>>(YEARS_KEY, {});
+  const yearsOn = read<Record<string, string>>(YEARS_ON_KEY, {});
+  for (const kind of Object.keys(yearsOn)) {
+    if (yearsOn[kind] !== today) continue;
+    years[kind] = Math.max(1, (years[kind] ?? 2) - 1);
+    delete yearsOn[kind];
+  }
+  // Year-1 entries for boats taken back above go too.
+  for (const kind of Object.keys(years)) if (!badges[kind]) delete years[kind];
+  write(YEARS_KEY, years);
+  write(YEARS_ON_KEY, yearsOn);
+  if (read<string | null>(TROPHY_KEY, null) === today) localStorage.removeItem(TROPHY_KEY);
 }
 // Forget everything this game has saved (only the test games when the test game is on).
 export function resetAll() {
