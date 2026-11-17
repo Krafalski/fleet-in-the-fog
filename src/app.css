@@ -319,3 +319,77 @@ h1, h2, p { margin: 0; }
 
 /* The key to the emoji in the copied result, right under the Copy button. */
 .share-key { margin: -6px 0 0; text-align: center; font-size: 12px; color: var(--ink-muted); }
+
+/* ---------- bigger anchors ---------- */
+.pegs { grid-template-columns: repeat(2, 16px); gap: 3px; }
+.pegs--wide { grid-template-columns: repeat(3, 16px); }
+.mini-anchor { width: 16px; height: 16px; }
+.pegs .peg--miss, .pegs .peg--blank { margin: 5.5px; }
+
+/* ---------- carry toggle ---------- */
+.carry-toggle { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 12px; color: var(--ink-muted); cursor: pointer; }
+.carry-toggle input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.carry-toggle__switch { flex: none; width: 30px; height: 18px; border-radius: 9px; background: var(--disabled); position: relative; transition: background 150ms; }
+.carry-toggle__switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; transition: transform 150ms; }
+.carry-toggle input:checked + .carry-toggle__switch { background: var(--ink); }
+.carry-toggle input:checked + .carry-toggle__switch::after { transform: translateX(12px); }
+.carry-toggle input:focus-visible + .carry-toggle__switch { outline: 2px solid var(--lantern); outline-offset: 2px; }
+
+/* ---------- where the ships sit ---------- */
+.play-area { display: flex; flex-direction: column; gap: 10px; }
+.play-area__board { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+/* Phones: the picker stays on screen at the bottom, like a keyboard. */
+.play-area .picker { position: sticky; bottom: 0; z-index: 5; padding: 8px 0 calc(8px + env(safe-area-inset-bottom)); background: var(--fog); box-shadow: 0 -8px 12px -8px var(--shadow); }
+/* Wide screens (iPad, desktop): a column of ships on the left, beside the board. */
+@media (min-width: 700px) {
+  .screen.game { max-width: 560px; }
+  .play-area { flex-direction: row; align-items: flex-start; gap: 14px; }
+  .play-area__board { flex: 1; }
+  .play-area .picker { order: -1; grid-template-columns: 1fr; width: 92px; flex: none; position: sticky; top: 12px; bottom: auto; padding: 0; box-shadow: none; background: transparent; }
+}
+
+/* ---------- welcome card ---------- */
+.intro { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 16px; background: var(--backdrop); backdrop-filter: blur(3px); animation: introIn 300ms ease both; transition: opacity 400ms ease; }
+.intro--leaving { opacity: 0; }
+@keyframes introIn { from { opacity: 0; } to { opacity: 1; } }
+.intro__card { width: 100%; max-width: 400px; max-height: 100%; overflow-y: auto; display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 24px 20px 18px; border-radius: 22px; background: var(--paper); box-shadow: 0 12px 40px var(--shadow); text-align: center; }
+.intro__date { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-muted); }
+.intro h2 { margin: 0; font-family: var(--font-display); font-weight: 500; font-size: 26px; line-height: 1.15; }
+.intro__fog { position: relative; overflow: hidden; width: 100%; padding: 20px 0 16px; border-radius: 18px; background: var(--panel); }
+.intro__ghosts { position: relative; display: flex; justify-content: center; gap: 6px; opacity: 0.45; }
+.intro__cloud { top: 18px; height: 56px; opacity: 0.8; z-index: 1; }
+.intro__cloud--left { left: -14%; animation: fogDrift 9s ease-in-out infinite; }
+.intro__cloud--right { right: -14%; animation: fogDrift 11s ease-in-out infinite reverse; }
+.intro__ships { display: flex; justify-content: center; flex-wrap: wrap; gap: 4px; }
+.intro__play { width: 100%; font-size: 18px; }
+.intro__rules { margin: 0; padding-left: 20px; text-align: left; font-size: 14px; line-height: 1.45; display: flex; flex-direction: column; gap: 8px; }
+.intro__key { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
+.intro__rules .mini-anchor { display: inline-flex; vertical-align: middle; margin: 0 1px; }
+
+/* ---------- top bar icons: a gentle hint that they can be tapped ---------- */
+/* Book and bottle float, every few seconds; the bottle a beat after the book. */
+.icon-btn--bob svg { animation: iconBob 4.5s ease-in-out infinite; transform-origin: 50% 80%; }
+.topbar__side--right .icon-btn--bob svg { animation-delay: 1.2s; }
+@keyframes iconBob {
+  0%, 60%, 100% { transform: translateY(0) rotate(0); }
+  70% { transform: translateY(-2.5px) rotate(-4deg); }
+  80% { transform: translateY(0) rotate(0); }
+  90% { transform: translateY(-1px) rotate(2deg); }
+}
+/* The lighthouse: a warm glow swells around the lamp and fades, like a turn of the light. */
+.icon-btn--beacon { position: relative; }
+.icon-btn--beacon::before {
+  content: ''; position: absolute; left: 50%; top: 2px; width: 30px; height: 30px; margin-left: -15px; border-radius: 50%;
+  background: radial-gradient(circle, var(--lantern) 0%, var(--lantern-glow) 35%, transparent 70%);
+  opacity: 0; pointer-events: none; animation: beacon 5s ease-in-out infinite 2s;
+}
+.icon-btn--beacon svg { position: relative; }
+@keyframes beacon {
+  0%, 70%, 100% { opacity: 0; transform: scale(0.6); }
+  80% { opacity: 0.85; transform: scale(1); }
+}
+.icon-btn:hover, .icon-btn:focus-visible { background: var(--panel); }
+/* People who ask their device for less motion get still icons. */
+@media (prefers-reduced-motion: reduce) {
+  .icon-btn--bob svg, .icon-btn--beacon::before { animation: none; }
+}

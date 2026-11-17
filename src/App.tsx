@@ -1,6 +1,8 @@
 // The whole app: which screen is showing, which day and difficulty are being played.
 // Navigation is one piece of state (`view`), not a router, because the game lives inside a Reddit post.
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { api } from './api';
+import { IntroModal } from './components/IntroModal';
 import { DevBar } from './components/DevBar';
 import { devTools } from './config';
 import { dateKeyFor } from './game/game';
@@ -18,11 +20,28 @@ export function App() {
   const [view, setView] = useState<View>('game');
   const [dateKey, setDateKey] = useState(today); // the puzzle on screen; changes when a past day is picked
   const [mode, setMode] = useState<Mode>('easy');
+  // The welcome card: only when today's puzzle hasn't been touched in either mode.
+  const [intro, setIntro] = useState<false | 'front' | 'rules'>(false);
+  useEffect(() => {
+    Promise.all([api.loadDay(today), api.loadGame(today, 'easy'), api.loadGame(today, 'hard')]).then(([day, easy, hard]) => {
+      const touched = day.easy || day.hard || [easy, hard].some((g) => g.guesses.length > 0 || g.rounds > 1);
+      setIntro(touched ? false : 'front');
+    });
+  }, [today]);
 
   return (
     <>
       {devTools && <DevBar today={today} />}
       {screen()}
+      {intro && (
+        <IntroModal
+          key={intro}
+          today={today}
+          startOn={intro}
+          // From the welcome card, Play goes to today's game. From How to play mid-game, it just closes.
+          onPlay={() => { if (intro === 'front') { setView('game'); setDateKey(today); } setIntro(false); }}
+        />
+      )}
     </>
   );
 
@@ -46,6 +65,7 @@ export function App() {
       onMode={setMode}
       onOpenLog={() => setView('log')}
       onOpenFleet={() => setView('fleet')}
+      onOpenHelp={() => setIntro('rules')}
     />
   );
   }

@@ -94,7 +94,7 @@ function SpotMarks({ spots, reveal }: { spots: Spot[]; reveal: boolean }) {
         <span key={i} className="spot-marks__cell">
           {s !== 'miss' && (
             <span className={`spot-anchor${reveal ? ' spot-anchor--reveal' : ''}`} style={{ '--i': i } as CSSProperties}>
-              <AnchorMark kind={s} />
+              <AnchorMark kind={s} size={22} />
             </span>
           )}
         </span>
@@ -120,7 +120,7 @@ export function AnchorMark({ kind, size = 16 }: { kind: 'exact' | 'near'; size?:
 // The anchor shape alone, small, for the totals grid (no outline; the white one gets a hairline edge in CSS).
 export function MiniAnchor() {
   return (
-    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <circle cx="12" cy="5.3" r="2" /><line x1="12" y1="7.3" x2="12" y2="20" /><line x1="8.5" y1="10.8" x2="15.5" y2="10.8" /><path d="M5 13.5 Q5.5 20 12 20 Q18.5 20 19 13.5" />
     </svg>
   );

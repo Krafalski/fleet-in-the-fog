@@ -28,6 +28,7 @@
   --picked: rgba(247, 233, 194, 0.9);            /* tapped boat or creature in the fleet */
   --lantern-glow: rgba(217, 164, 65, 0.45);      /* glow round earned things */
   --lantern-glow-row: rgba(217, 164, 65, 0.4);   /* glow round the current row */
+  --backdrop: rgba(47, 79, 79, 0.35); /* behind the welcome card */
   /* fog */
   --cloud: #fff; --fog-spot: #F8F9F6; --fog-glow: rgba(255, 255, 255, 0.9);
   /* feedback pegs */

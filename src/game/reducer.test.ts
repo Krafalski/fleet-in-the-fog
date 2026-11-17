@@ -122,3 +122,20 @@ describe('practice actions', () => {
     expect(newGame('2026-11-17', 'hard').perSpot).toBe(false);
   });
 });
+
+describe('carrying right-spot ships', () => {
+  const scored = (carry: boolean) => reducer(newGame('2026-11-17', 'easy'), {
+    type: 'GUESS_SCORED', guess: [0, 1, 2, 3], status: 'playing', answer: null, carry,
+    feedback: { exact: 2, near: 1, spots: ['exact', 'near', 'miss', 'exact'] },
+  });
+  test('with carry on, the next row starts with the ships that were in the right spot', () => {
+    expect(scored(true).current).toEqual([0, null, null, 3]);
+  });
+  test('with carry off, the next row starts empty', () => {
+    expect(scored(false).current).toEqual([null, null, null, null]);
+  });
+  test('a carried ship can be tapped out like any other', () => {
+    const s = reducer(scored(true), { type: 'TAP_SLOT', slot: 0 });
+    expect(s.current[0]).toBe(null);
+  });
+});

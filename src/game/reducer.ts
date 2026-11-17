@@ -26,7 +26,8 @@ export type Action =
   | { type: 'PICK_SHIP'; ship: Ship }
   | { type: 'TAP_SLOT'; slot: number }
   | { type: 'CLEAR_ROW' }
-  | { type: 'GUESS_SCORED'; guess: Ship[]; feedback: Feedback; status: Status; answer: Ship[] | null }
+  // carry: start the next row with the ships that were in the right spot (Easy and per-spot Practice only).
+  | { type: 'GUESS_SCORED'; guess: Ship[]; feedback: Feedback; status: Status; answer: Ship[] | null; carry?: boolean }
   | { type: 'HINT_GIVEN'; ship: Ship }
   | { type: 'REPLAY' }
   | { type: 'GAVE_UP'; answer: Ship[] }   // practice only: end the game and show the fleet
@@ -119,7 +120,9 @@ export function reducer(state: GameState, action: Action): GameState {
         ...state,
         guesses: [...state.guesses, action.guess],
         feedback: [...state.feedback, action.feedback],
-        current: emptyRow(state.mode),
+        current: action.carry && action.feedback.spots
+          ? action.guess.map((ship, i) => (action.feedback.spots![i] === 'exact' ? ship : null))
+          : emptyRow(state.mode),
         cursor: null,
         status: action.status,
         answer: action.answer,

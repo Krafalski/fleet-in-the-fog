@@ -154,6 +154,21 @@ export function Fleet({ today, onClose }: Props) {
   const detail = describe(current);
   const colorways = showAllColorways ? COLORWAYS : COLORWAYS.slice(0, unlocked(current.kind));
 
+  // The Fleet Admiral cup: at the top of the harbor view once earned, last on the screen until then.
+  const trophyCard = (
+      <div className={`trophy-card${trophy ? ' is-lit' : ''}`}>
+        <Trophy size={1.1} locked={!trophy} />
+        <div>
+          <strong>Fleet Admiral</strong>
+          {trophy ? (
+            <p>You are the fleet. Earned {formatDate(trophy, false)}.</p>
+          ) : (
+            <p>Keep every boat sailing for three years, then one more day. {Math.max(0, TROPHY_DAYS - streak)} days to go.</p>
+          )}
+        </div>
+      </div>
+  );
+
   return (
     <main className="screen fleet">
       <header className="screen-head">
@@ -212,17 +227,8 @@ export function Fleet({ today, onClose }: Props) {
         </ul>
       ) : (
         <>
-          <div className={`trophy-card${trophy ? ' is-lit' : ''}`}>
-            <Trophy size={1.1} locked={!trophy} />
-            <div>
-              <strong>Fleet Admiral</strong>
-              {trophy ? (
-                <p>You are the fleet. Earned {formatDate(trophy, false)}.</p>
-              ) : (
-                <p>Keep every boat sailing for three years, then one more day. {Math.max(0, TROPHY_DAYS - streak)} days to go.</p>
-              )}
-            </div>
-          </div>
+          {/* Earned: the cup leads the harbor view. Not yet: it waits at the very bottom. */}
+          {trophy && trophyCard}
 
           <header className="fleet__section-head">
             <h2>Wins in…</h2>
@@ -309,6 +315,7 @@ export function Fleet({ today, onClose }: Props) {
       )}
 
       <RepairCard repairs={repairs} offer={offer} nextRepairIn={nextRepairIn} wide onUse={useRepair} />
+      {!showAll && !trophy && trophyCard}
     </main>
   );
 }

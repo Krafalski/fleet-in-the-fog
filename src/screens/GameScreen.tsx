@@ -5,6 +5,7 @@
 // and the board stays on screen when it ends.
 import { useEffect, useReducer, useRef, useState } from 'react';
 import { api, newPracticeKey } from '../api';
+import { loadPrefs, savePrefs } from '../prefs';
 import type { Outcome } from '../api';
 import { AnchorMark, Board, MiniAnchor as MiniAnchorIcon } from '../components/Board';
 import { DayPanel } from '../components/DayPanel';
@@ -34,10 +35,11 @@ type Props = {
   onMode: (mode: Mode) => void;
   onOpenLog: () => void;
   onOpenFleet: () => void;
+  onOpenHelp: () => void; // the message-in-a-bottle button: How to play
 };
 
 // App gives this component a `key` of date + mode, so it starts fresh whenever either changes.
-export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFleet }: Props) {
+export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFleet, onOpenHelp }: Props) {
   const [state, dispatch] = useReducer(reducer, newGame(dateKey, mode));
   const [loaded, setLoaded] = useState(false);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
@@ -50,6 +52,7 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
   useEffect(() => () => { window.clearTimeout(endTimer.current); window.clearTimeout(repeatTimer.current); }, []);
   const lastReplayTap = useRef(0);
   const [askGiveUp, setAskGiveUp] = useState(false);
+  const [carry, setCarry] = useState(() => loadPrefs().carry);
   const practice = mode === 'practice';
 
   // Load the saved game once, then save after every change.
@@ -82,7 +85,7 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
     }
     const guess = state.current as Ship[];
     const result = await api.submitGuess(state, guess);
-    const action: Action = { type: 'GUESS_SCORED', guess, ...result };
+    const action: Action = { type: 'GUESS_SCORED', guess, ...result, carry: carry && state.perSpot };
     dispatch(action);
     if (result.status !== 'playing') {
       setEnding(true);
@@ -173,9 +176,19 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
       {!over && <strong>{status}</strong>}
     </div>
   );
+  // Carry right-spot ships into the next row (Easy, and Practice with marks under each ship).
+  // Lives at the very bottom: set-and-forget, found later by people who want it off.
+  const carryToggle = state.perSpot && !over && (
+    <label className="carry-toggle">
+      <input type="checkbox" checked={carry} onChange={() => { setCarry(!carry); savePrefs({ ...loadPrefs(), carry: !carry }); }} />
+      <span className="carry-toggle__switch" aria-hidden="true" />
+      Keep ships that are in the right spot for the next row
+    </label>
+  );
+
   return (
     <main className={`screen game game--${mode}${testGame ? ' is-test' : ''}${replaying ? ' is-replay' : ''}`}>
-      <TopBar subtitle={practice ? 'Practice · a new fleet every game' : `Harbor log · ${formatDate(dateKey)}`} onOpenLog={onOpenLog} onOpenFleet={onOpenFleet} />
+      <TopBar onOpenHelp={onOpenHelp} subtitle={practice ? 'Practice · a new fleet every game' : `Harbor log · ${formatDate(dateKey)}`} onOpenLog={onOpenLog} onOpenFleet={onOpenFleet} />
 
       <div className="segmented" role="group" aria-label="Difficulty">
         {MODE_LIST.map((m) => (
@@ -196,6 +209,7 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
             ? 'Easy: an anchor under each ship tells you about that ship.'
             : 'Hard: anchors at the end of each row are totals, in no order.'}
       </p>
+
 
       {practice && (
         <div className="feedback-toggle" role="group" aria-label="Feedback">
@@ -224,9 +238,14 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
             </button>
           )}
 
-          <Board state={state} boatSize={BOAT_SIZE[mode]} onTapSlot={(slot) => dispatch({ type: 'TAP_SLOT', slot })} lastRow={ending ? state.status : undefined} />
-          {legend}
-          <ShipPicker ships={MODES[mode].ships} ruledOut={state.ruledOut} disabled={over} onPick={(ship) => dispatch({ type: 'PICK_SHIP', ship })} />
+          {/* Phones: the ships sit pinned to the bottom of the screen. Wide screens: a column beside the board. */}
+          <div className="play-area">
+            <div className="play-area__board">
+              <Board state={state} boatSize={BOAT_SIZE[mode]} onTapSlot={(slot) => dispatch({ type: 'TAP_SLOT', slot })} lastRow={ending ? state.status : undefined} />
+              {legend}
+            </div>
+            <ShipPicker ships={MODES[mode].ships} ruledOut={state.ruledOut} disabled={over} onPick={(ship) => dispatch({ type: 'PICK_SHIP', ship })} />
+          </div>
 
           {!ending && (
             <div className="actions">
@@ -243,6 +262,7 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
               {!over && <button type="button" className="link-btn" onClick={() => setAskGiveUp(true)}>Give up</button>}
             </div>
           )}
+          {!ending && carryToggle}
         </>
       ) : over && !ending ? (
         <>
@@ -281,11 +301,14 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
           )}
 
           {testGame && <p className="test-tag">Test game: the answer is all junks</p>}
-          <Board state={state} boatSize={BOAT_SIZE[mode]} onTapSlot={(slot) => dispatch({ type: 'TAP_SLOT', slot })} lastRow={ending ? state.status : undefined} />
-
-          {legend}
-
-          <ShipPicker ships={MODES[mode].ships} ruledOut={state.ruledOut} disabled={over} onPick={(ship) => dispatch({ type: 'PICK_SHIP', ship })} />
+          {/* Phones: the ships sit pinned to the bottom of the screen. Wide screens: a column beside the board. */}
+          <div className="play-area">
+            <div className="play-area__board">
+              <Board state={state} boatSize={BOAT_SIZE[mode]} onTapSlot={(slot) => dispatch({ type: 'TAP_SLOT', slot })} lastRow={ending ? state.status : undefined} />
+              {legend}
+            </div>
+            <ShipPicker ships={MODES[mode].ships} ruledOut={state.ruledOut} disabled={over} onPick={(ship) => dispatch({ type: 'PICK_SHIP', ship })} />
+          </div>
 
           {!ending && (
             <div className="actions">
@@ -299,6 +322,7 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
               <button type="button" className="link-btn" onClick={() => dispatch({ type: 'CLEAR_ROW' })}>Clear row</button>
             </div>
           )}
+          {!ending && carryToggle}
         </>
       )}
     </main>
