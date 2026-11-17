@@ -1,16 +1,35 @@
 // The hidden fleet at the top. Clouds drift over it while playing; when the game ends
 // they part and fade, and the answer fades in underneath.
+import { useEffect, useState } from 'react';
 import { Boat, SHIP_KINDS, SHIP_NAMES } from '../Boat';
-import { MODES } from '../game/game';
+import { MODES, SHIP_COUNT } from '../game/game';
+import type { Ship } from '../game/game';
 import type { GameState } from '../game/reducer';
+
+// How often one of the shapes in the fog changes.
+const SHAPE_CHANGE_MS = 3200;
+const randomShip = (): Ship => Math.floor(Math.random() * SHIP_COUNT);
 
 export function FogCard({ state, boatSize }: { state: GameState; boatSize: number }) {
   const { slots } = MODES[state.mode];
   const over = state.status !== 'playing';
-  const ruledOutNames = state.ruledOut.slice(0, state.ruledOut.length - state.hintsUsed).map((s) => SHIP_NAMES[SHIP_KINDS[s]]);
+
+  // While the fleet is hidden, each spot shows a faint ship shape. They are picked at random
+  // and have nothing to do with the answer; every so often one of them changes.
+  const [shapes, setShapes] = useState<Ship[]>(() => Array.from({ length: slots }, randomShip));
+  useEffect(() => {
+    if (over) return;
+    const timer = window.setInterval(() => {
+      setShapes((old) => {
+        const next = [...old];
+        next[Math.floor(Math.random() * next.length)] = randomShip();
+        return next;
+      });
+    }, SHAPE_CHANGE_MS);
+    return () => window.clearInterval(timer);
+  }, [over]);
 
   let label = `${slots} ships came in before dawn`;
-  if (ruledOutNames.length) label += `. No ${ruledOutNames.join(' or ').toLowerCase()} today.`;
   if (state.status === 'won') label = 'The fog lifts. Here is the fleet.';
   if (state.status === 'lost') label = 'The fog lifts. This was the fleet.';
 
@@ -28,7 +47,9 @@ export function FogCard({ state, boatSize }: { state: GameState; boatSize: numbe
                 role="img"
                 aria-label={ship !== null ? `Spot ${i + 1}, ${SHIP_NAMES[SHIP_KINDS[ship]]}` : `Spot ${i + 1}, hidden in fog`}
               >
-                {ship !== null ? <Boat kind={SHIP_KINDS[ship]} size={boatSize} /> : <span className="fog-spot__q">?</span>}
+                {ship !== null
+                  ? <Boat kind={SHIP_KINDS[ship]} size={boatSize} />
+                  : <span key={shapes[i]} className="fog-spot__shape"><Boat kind={SHIP_KINDS[shapes[i]]} size={boatSize} /></span>}
               </div>
             );
           })}

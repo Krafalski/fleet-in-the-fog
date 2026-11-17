@@ -11,8 +11,8 @@ export type Badge = {
 
 // In earning order. Months are counted as 30 days.
 export const BADGES: Badge[] = [
-  { kind: 'paper', name: 'Paper boat', how: '3-day streak', days: 3, note: "Folded from a page of the harbor log. Floats better than it should." },
-  { kind: 'rowboat', name: 'Rowboat', how: '5-day streak', days: 5, note: "Two oars and a steady pull. Every fleet starts somewhere." },
+  { kind: 'paper', name: 'Paper boat', how: 'First solved day', days: 1, note: "Folded from a page of the harbor log. Floats better than it should." },
+  { kind: 'rowboat', name: 'Rowboat', how: '3-day streak', days: 3, note: "Two oars and a steady pull. Every fleet starts somewhere." },
   { kind: 'canoe', name: 'Canoe', how: '7-day streak', days: 7, note: "Slips through the reeds without a sound. A full week on the water." },
   { kind: 'raft', name: 'Raft', how: '10-day streak', days: 10, note: "Lashed together from driftwood. It holds, mostly." },
   { kind: 'gondola', name: 'Gondola', how: '14-day streak', days: 14, note: "Glides in from quieter canals. Two weeks without missing a tide." },
@@ -39,13 +39,14 @@ export function badgesForStreak(streak: number): string[] {
   return BADGES.filter((b) => b.days !== null && b.days <= streak).map((b) => b.kind);
 }
 
-// How many days in a row the player has finished a puzzle, ending today
+// How many days in a row the player has solved a puzzle, ending today
 // (or yesterday, if today's has not been played yet).
-export function computeStreak(playedDays: Set<string>, today: string): number {
+// Days mended with a streak repair keep the run going but do not add to the count.
+export function computeStreak(playedDays: Set<string>, today: string, mendedDays: Set<string> = new Set()): number {
   let day = playedDays.has(today) ? today : addDays(today, -1);
   let streak = 0;
-  while (playedDays.has(day)) {
-    streak++;
+  while (playedDays.has(day) || mendedDays.has(day)) {
+    if (playedDays.has(day)) streak++;
     day = addDays(day, -1);
   }
   return streak;

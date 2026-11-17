@@ -1,0 +1,6 @@
+<!-- Fleet in the Fog: one board slot. Draw the back wave, then the ship, then the front ripple. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 44" width="104" height="88">
+  <path id="wave-back" d="M0 31 Q 26 37 52 31 L52 44 L0 44 Z" fill="#B3D0D3"/>
+  <!-- the ship goes here, sitting 1px into the water -->
+  <path id="wave-front" d="M0 40 Q 6.5 38.5 13 40 T 26 40 T 39 40 T 52 40 V44 H0 Z" fill="#7FA9AF"/>
+</svg>

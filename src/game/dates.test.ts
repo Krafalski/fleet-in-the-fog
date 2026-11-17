@@ -31,7 +31,10 @@ describe('streaks', () => {
     expect(computeStreak(new Set(['2026-11-12']), '2026-11-15')).toBe(0);
   });
   test('badges earned by streak length', () => {
-    expect(badgesForStreak(2)).toEqual([]);
+    expect(badgesForStreak(0)).toEqual([]);
+    expect(badgesForStreak(2)).toEqual(['paper']);
+    expect(badgesForStreak(1)).toEqual(['paper']);
+    expect(badgesForStreak(4)).toEqual(['paper', 'rowboat']);
     expect(badgesForStreak(7)).toEqual(['paper', 'rowboat', 'canoe']);
     expect(badgesForStreak(1000).includes('ghost')).toBe(false);
     expect(badgesForStreak(360).length).toBe(17);

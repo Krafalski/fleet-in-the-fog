@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest';
+import { MAX_REPEATS } from '../config';
 import { MODES, dateKeyFor, isWin, leaderboardScore, nextHint, puzzleForDate, score } from './game';
 import type { Mode } from './game';
 
@@ -27,13 +28,13 @@ describe('score', () => {
 describe('isWin', () => {
   test('needs every slot exact for the mode', () => {
     expect(isWin({ exact: 4, near: 0 }, 'easy')).toBe(true);
-    expect(isWin({ exact: 4, near: 1 }, 'medium')).toBe(false);
-    expect(isWin({ exact: 6, near: 0 }, 'hard')).toBe(true);
+    expect(isWin({ exact: 4, near: 1 }, 'hard')).toBe(false);
+    expect(isWin({ exact: 5, near: 0 }, 'hard')).toBe(true);
   });
 });
 
 describe('puzzleForDate', () => {
-  const modes: Mode[] = ['easy', 'medium', 'hard'];
+  const modes: Mode[] = ['easy', 'hard'];
 
   test('same date and mode always gives the same puzzle', () => {
     for (const mode of modes) {
@@ -45,7 +46,7 @@ describe('puzzleForDate', () => {
     for (let d = 1; d <= 30; d++) seen.add(puzzleForDate(`2026-11-${String(d).padStart(2, '0')}`, 'easy').code.join(''));
     expect(seen.size).toBeGreaterThan(25);
   });
-  test('codes are the right length, use ships 0-5, and repeat a ship at most twice', () => {
+  test('codes are the right length, use ships 0-5, and repeat a ship no more than MAX_REPEATS times', () => {
     for (const mode of modes) {
       for (let d = 1; d <= 300; d++) {
         const { code, ruledOut } = puzzleForDate(`day-${d}`, mode);
@@ -53,16 +54,14 @@ describe('puzzleForDate', () => {
         for (const ship of code) {
           expect(ship).toBeGreaterThanOrEqual(0);
           expect(ship).toBeLessThan(6);
-          expect(code.filter((s) => s === ship).length).toBeLessThanOrEqual(2);
+          expect(code.filter((s) => s === ship).length).toBeLessThanOrEqual(MAX_REPEATS);
           expect(ruledOut.includes(ship)).toBe(false);
         }
       }
     }
   });
-  test('only hard mode starts with a ship ruled out', () => {
-    expect(puzzleForDate('2026-11-15', 'easy').ruledOut).toEqual([]);
-    expect(puzzleForDate('2026-11-15', 'medium').ruledOut).toEqual([]);
-    expect(puzzleForDate('2026-11-15', 'hard').ruledOut.length).toBe(1);
+  test('no mode starts with a ship ruled out', () => {
+    for (const mode of modes) expect(puzzleForDate('2026-11-15', mode).ruledOut).toEqual([]);
   });
 });
 
@@ -78,8 +77,20 @@ describe('nextHint', () => {
 });
 
 describe('dateKeyFor', () => {
-  test('uses the UTC day', () => {
+  test('with the settings as shipped, uses the UTC day, not the local one', () => {
     expect(dateKeyFor(new Date('2026-11-15T23:30:00-05:00'))).toBe('2026-11-16');
+  });
+  test('an evening start names the game for the next day', () => {
+    // 7:30 pm in New York. In November that is 00:30 UTC; in July, 23:30 UTC.
+    expect(dateKeyFor(new Date('2026-11-16T19:29:00-05:00'), '19:30', 'America/New_York')).toBe('2026-11-16');
+    expect(dateKeyFor(new Date('2026-11-16T19:30:00-05:00'), '19:30', 'America/New_York')).toBe('2026-11-17');
+    expect(dateKeyFor(new Date('2026-11-17T09:00:00-05:00'), '19:30', 'America/New_York')).toBe('2026-11-17');
+    expect(dateKeyFor(new Date('2026-07-10T19:29:00-04:00'), '19:30', 'America/New_York')).toBe('2026-07-10');
+    expect(dateKeyFor(new Date('2026-07-10T19:30:00-04:00'), '19:30', 'America/New_York')).toBe('2026-07-11');
+  });
+  test('a morning start names the game for the day it starts', () => {
+    expect(dateKeyFor(new Date('2026-11-16T05:59:00Z'), '06:00', 'UTC')).toBe('2026-11-15');
+    expect(dateKeyFor(new Date('2026-11-16T06:00:00Z'), '06:00', 'UTC')).toBe('2026-11-16');
   });
 });
 

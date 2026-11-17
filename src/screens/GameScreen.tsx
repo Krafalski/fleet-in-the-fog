@@ -1,22 +1,29 @@
 // The main screen: title bar, difficulty switch, the fog, Log guess, the board, the picker.
+// When the game is over, the board, picker and Hint give way to the day's numbers (DayPanel).
+// The finished board is one tap away ("Show my guesses"), shown locked so it can't be mistaken for a live game.
 import { useEffect, useReducer, useRef, useState } from 'react';
 import { api } from '../api';
 import type { Outcome } from '../api';
 import { Board } from '../components/Board';
+import { DayPanel } from '../components/DayPanel';
 import { FogCard } from '../components/FogCard';
 import { ShipPicker } from '../components/ShipPicker';
 import { TopBar } from '../components/TopBar';
+import { testGame } from '../config';
 import { formatDate } from '../game/dates';
-import { MODES } from '../game/game';
+import { MODES, MODE_LIST } from '../game/game';
 import type { Mode, Ship } from '../game/game';
-import { canLogGuess, newGame, reducer } from '../game/reducer';
-import type { Action, GameState } from '../game/reducer';
+import { alreadyGuessed, canLogGuess, newGame, reducer, totalGuesses } from '../game/reducer';
+import type { Action } from '../game/reducer';
 
-// How long the fog takes to lift before the results screen opens. Matches theme.css.
-const FOG_LIFT_MS = 5800;
 // Boats shrink a little as rows get longer.
-const BOAT_SIZE: Record<Mode, number> = { easy: 1.05, medium: 0.95, hard: 0.85 };
-const MODE_LIST: Mode[] = ['easy', 'medium', 'hard'];
+const BOAT_SIZE: Record<Mode, number> = { easy: 1.05, hard: 0.95 };
+// The moment a game ends: pegs light up, the fog lifts, a banner shows, then the day's results take over.
+const ENDING_MS = 3400;
+// How long "Already played" stays on the Log guess button.
+const ALREADY_PLAYED_MS = 2000;
+// Two taps on Replay closer together than this skip the "are you sure" question.
+const DOUBLE_TAP_MS = 400;
 
 type Props = {
   dateKey: string;  // the puzzle being played
@@ -25,14 +32,21 @@ type Props = {
   onMode: (mode: Mode) => void;
   onOpenLog: () => void;
   onOpenFleet: () => void;
-  onShowResults: (state: GameState, outcome: Outcome | null) => void;
 };
 
 // App gives this component a `key` of date + mode, so it starts fresh whenever either changes.
-export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFleet, onShowResults }: Props) {
+export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFleet }: Props) {
   const [state, dispatch] = useReducer(reducer, newGame(dateKey, mode));
   const [loaded, setLoaded] = useState(false);
-  const timer = useRef<number | undefined>(undefined);
+  const [outcome, setOutcome] = useState<Outcome | null>(null);
+  const [askReplay, setAskReplay] = useState(false);
+  const [showGuesses, setShowGuesses] = useState(false); // the finished board, in place of the results
+  const [ending, setEnding] = useState(false);            // true for a few seconds right after the last guess
+  const [repeat, setRepeat] = useState(false);            // true while "Already played" shows
+  const endTimer = useRef<number | undefined>(undefined);
+  const repeatTimer = useRef<number | undefined>(undefined);
+  useEffect(() => () => { window.clearTimeout(endTimer.current); window.clearTimeout(repeatTimer.current); }, []);
+  const lastReplayTap = useRef(0);
 
   // Load the saved game once, then save after every change.
   useEffect(() => {
@@ -42,10 +56,7 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
       dispatch({ type: 'LOAD', state: saved });
       setLoaded(true);
     });
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer.current);
-    };
+    return () => { cancelled = true; };
   }, [dateKey, mode]);
 
   useEffect(() => {
@@ -53,24 +64,26 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
   }, [loaded, state]);
 
   const over = state.status !== 'playing';
+  const replaying = state.rounds > 1; // the whole board goes grey during a replay, so it's clear it doesn't count
   const { maxGuesses } = MODES[mode];
 
   async function logGuess() {
-    if (over) {
-      window.clearTimeout(timer.current);
-      onShowResults(state, null);
+    if (!canLogGuess(state)) return;
+    if (alreadyGuessed(state)) {
+      // Same row as one already played: say so for a moment, and don't log it.
+      setRepeat(true);
+      window.clearTimeout(repeatTimer.current);
+      repeatTimer.current = window.setTimeout(() => setRepeat(false), ALREADY_PLAYED_MS);
       return;
     }
-    if (!canLogGuess(state)) return;
     const guess = state.current as Ship[];
     const result = await api.submitGuess(state, guess);
     const action: Action = { type: 'GUESS_SCORED', guess, ...result };
     dispatch(action);
     if (result.status !== 'playing') {
-      const finished = reducer(state, action);
-      const outcome = await api.recordResult(finished, today);
-      // Let the fog lift, then show the results.
-      timer.current = window.setTimeout(() => onShowResults(finished, outcome), FOG_LIFT_MS);
+      setEnding(true);
+      endTimer.current = window.setTimeout(() => setEnding(false), ENDING_MS);
+      setOutcome(await api.recordResult(reducer(state, action), today));
     }
   }
 
@@ -79,13 +92,42 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
     if (ship !== null) dispatch({ type: 'HINT_GIVEN', ship });
   }
 
+  function replay() {
+    setAskReplay(false);
+    setOutcome(null);
+    setShowGuesses(false);
+    setEnding(false);
+    window.clearTimeout(endTimer.current);
+    dispatch({ type: 'REPLAY' });
+  }
+
+  // One tap asks first. A quick second tap means "yes, I'm sure".
+  function tapReplay() {
+    const now = Date.now();
+    if (now - lastReplayTap.current < DOUBLE_TAP_MS) replay();
+    else setAskReplay(true);
+    lastReplayTap.current = now;
+  }
+
+  // During a replay, count only this round's guesses.
+  const shown = replaying ? state.guesses.length : totalGuesses(state);
   const status =
-    state.status === 'won' ? `Solved in ${state.guesses.length}!`
-    : state.status === 'lost' ? 'The fleet slipped away'
-    : `Guess ${state.guesses.length + 1} of ${maxGuesses}`;
+    state.status === 'won' ? `Solved in ${shown}!`
+    : state.status === 'lost' ? 'Slipped away'
+    : `${state.rounds > 1 ? 'Replay · ' : ''}Guess ${state.guesses.length + 1} of ${maxGuesses}`;
+
+  const replayConfirm = askReplay && (
+    <div className="confirm" role="alertdialog" aria-label="Replay this puzzle?">
+      <p><strong>Are you sure?</strong> Only the first game will count.</p>
+      <div className="confirm__buttons">
+        <button type="button" className="outline-btn" onClick={() => setAskReplay(false)}>Keep playing</button>
+        <button type="button" className="primary-btn primary-btn--small" onClick={replay}>Replay</button>
+      </div>
+    </div>
+  );
 
   return (
-    <main className={`screen game game--${mode}`}>
+    <main className={`screen game game--${mode}${testGame ? ' is-test' : ''}${replaying ? ' is-replay' : ''}`}>
       <TopBar subtitle={`Harbor log · ${formatDate(dateKey)}`} onOpenLog={onOpenLog} onOpenFleet={onOpenFleet} />
 
       <div className="segmented" role="group" aria-label="Difficulty">
@@ -98,26 +140,70 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
 
       <FogCard state={state} boatSize={BOAT_SIZE[mode]} />
 
-      <button type="button" className="primary-btn" onClick={logGuess} disabled={!over && !canLogGuess(state)}>
-        {over ? 'See results' : 'Log guess'}
-      </button>
+      {over && !ending ? (
+        <>
+          {showGuesses ? (
+            <section className="board-final" aria-label="Finished board">
+              <button type="button" className="outline-btn" onClick={() => setShowGuesses(false)}>Back to the day's results</button>
+              <p className="board-final__tag">Finished board · {state.status === 'won' ? 'solved' : 'slipped away'} · can't be changed</p>
+              <Board state={state} boatSize={BOAT_SIZE[mode]} onTapSlot={() => {}} />
+              <div className="legend">
+                <span><i className="peg peg--exact" />Right ship, right spot</span>
+                <span><i className="peg peg--near" />Wrong spot</span>
+              </div>
+            </section>
+          ) : (
+            <>
+              <DayPanel state={state} outcome={outcome} today={today} onMode={onMode} onOpenLog={onOpenLog} onOpenFleet={onOpenFleet} />
+              <button type="button" className="outline-btn" onClick={() => setShowGuesses(true)}>Show my guesses</button>
+            </>
+          )}
+          <div className="actions">
+            {replayConfirm}
+            <div className="actions__left">
+              <button type="button" className="outline-btn replay-btn" onClick={tapReplay}>Replay</button>
+            </div>
+          </div>
+        </>
+      ) : (
+        <>
+          {ending ? (
+            // The game just ended: a banner where Log guess was. Tap it to skip ahead.
+            <button type="button" className={`end-banner end-banner--${state.status}`} onClick={() => { window.clearTimeout(endTimer.current); setEnding(false); }}>
+              <strong>{state.status === 'won' ? (replaying ? 'Replay solved!' : 'Fleet found!') : 'The fleet slipped away'}</strong>
+              <span>{state.status === 'won' ? `Solved in ${shown}` : 'The fog lifts…'}</span>
+            </button>
+          ) : (
+            <button type="button" className={`primary-btn${repeat ? ' primary-btn--repeat' : ''}`} onClick={logGuess} disabled={!canLogGuess(state)}>
+              {repeat ? 'Already played' : 'Log guess'}
+            </button>
+          )}
 
-      <Board state={state} boatSize={BOAT_SIZE[mode]} onTapSlot={(slot) => dispatch({ type: 'TAP_SLOT', slot })} />
+          {testGame && <p className="test-tag">Test game: the answer is all junks</p>}
+          <Board state={state} boatSize={BOAT_SIZE[mode]} onTapSlot={(slot) => dispatch({ type: 'TAP_SLOT', slot })} lastRow={ending ? state.status : undefined} />
 
-      <div className="legend">
-        <span><i className="peg peg--exact" />Right ship, right spot</span>
-        <span><i className="peg peg--near" />Wrong spot</span>
-        <strong>{status}</strong>
-      </div>
+          <div className="legend">
+            <span><i className="peg peg--exact" />Right ship, right spot</span>
+            <span><i className="peg peg--near" />Wrong spot</span>
+            <strong>{status}</strong>
+          </div>
 
-      <ShipPicker selected={state.selected} ruledOut={state.ruledOut} disabled={over} onPick={(ship) => dispatch({ type: 'PICK_SHIP', ship })} />
+          <ShipPicker ruledOut={state.ruledOut} disabled={over} onPick={(ship) => dispatch({ type: 'PICK_SHIP', ship })} />
 
-      <div className="actions">
-        <button type="button" className="outline-btn" onClick={useHint} disabled={over}>
-          {state.hintsUsed ? `Hint · ${state.hintsUsed} used` : 'Hint'}
-        </button>
-        <button type="button" className="link-btn" onClick={() => dispatch({ type: 'CLEAR_ROW' })} disabled={over}>Clear row</button>
-      </div>
+          {!ending && (
+            <div className="actions">
+              {replayConfirm}
+              <div className="actions__left">
+                <button type="button" className="outline-btn" onClick={useHint}>
+                  {state.hintsUsed ? `Hint · ${state.hintsUsed} used` : 'Hint'}
+                </button>
+                <button type="button" className="outline-btn replay-btn" onClick={tapReplay}>Replay</button>
+              </div>
+              <button type="button" className="link-btn" onClick={() => dispatch({ type: 'CLEAR_ROW' })}>Clear row</button>
+            </div>
+          )}
+        </>
+      )}
     </main>
   );
 }

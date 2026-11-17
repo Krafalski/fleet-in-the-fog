@@ -20,8 +20,8 @@ export const SHIP_NAMES: Record<ShipKind, string> = {
 
 // Badge boats in earning order.
 export const BADGE_LADDER: { kind: BadgeKind; name: string; how: string }[] = [
-  { kind: 'paper', name: 'Paper boat', how: '3-day streak' },
-  { kind: 'rowboat', name: 'Rowboat', how: '5-day streak' },
+  { kind: 'paper', name: 'Paper boat', how: 'First solved day' },
+  { kind: 'rowboat', name: 'Rowboat', how: '3-day streak' },
   { kind: 'canoe', name: 'Canoe', how: '7-day streak' },
   { kind: 'raft', name: 'Raft', how: '10-day streak' },
   { kind: 'gondola', name: 'Gondola', how: '14-day streak' },

@@ -1,4 +1,7 @@
 :root {
+  /* fonts: change these two lines to change every font in the game */
+  --font-body: Inter, system-ui, sans-serif;
+  --font-display: Fraunces, Georgia, serif;
   /* Fleet in the Fog palette */
   /* page and panels */
   --fog: #E3E6DF;          /* page background */
@@ -6,6 +9,32 @@
   --water: #D7E3E1;        /* harbor / fleet background */
   --ink: #2F4F4F;          /* main text, dark buttons */
   --ink-soft: #3E5551;     /* secondary text */
+  /* text and lines */
+  --ink-muted: #4A6460;    /* small labels, row numbers */
+  --on-ink: #F6F1E3;       /* text on dark buttons */
+  --line: #D5CFBD;         /* thin dividers */
+  --line-dashed: #C5C9C0;  /* dashed outline of empty slots */
+  --outline: #6F837D;      /* outline buttons */
+  --outline-soft: #9AA8A3; /* pill buttons */
+  --shadow: rgba(47, 79, 79, 0.25);
+  /* more backgrounds */
+  --panel: #EEF0EA;        /* fog card, end-of-day panel */
+  --track: #D6DAD2;        /* behind the Easy / Hard switch */
+  --disabled: #B9C2BD;     /* greyed-out button */
+  --ruled-out: #DCDFD8;    /* a ship the hint crossed off */
+  --day-empty: #EAE7DD;    /* a log day with no game */
+  --row-current: #F7EFD6;  /* the row being played */
+  --sea-current: #E9F0EC;  /* water behind the row being played */
+  --picked: rgba(247, 233, 194, 0.9);            /* tapped boat or creature in the fleet */
+  --lantern-glow: rgba(217, 164, 65, 0.45);      /* glow round earned things */
+  --lantern-glow-row: rgba(217, 164, 65, 0.4);   /* glow round the current row */
+  /* fog */
+  --cloud: #fff; --fog-spot: #F8F9F6; --fog-glow: rgba(255, 255, 255, 0.9);
+  /* feedback pegs */
+  --peg-miss: #CFC8B4; --peg-blank: #D9D4C6;
+  /* test game (the burgundy board) */
+  --replay-board: #8E9693;  /* test board during a replay: a soft mid grey instead of near-black */
+  --test-board: #6B1F2A; --test-peg: #8E4651; --test-light: #F4EFE2;
   /* highlight */
   --lantern: #D9A441;      /* current-row glow */
   --lantern-pale: #F7E9C2; /* selected / earned backgrounds */
@@ -27,13 +56,28 @@
 .boat--year2  { filter: invert(1) hue-rotate(180deg); } /* second time around */
 .boat--year3  { filter: grayscale(1) contrast(1.15); }  /* third time around */
 
-/* The fog lift on a win */
-@keyframes fogLeft  { 0% { opacity: .78; transform: translateX(0) scale(1); } 25%, 40% { opacity: 1; transform: translateX(4%) scale(1.12); } 100% { opacity: 0; transform: translateX(-80%) scale(1.25); } }
-@keyframes fogRight { 0% { opacity: .78; transform: translateX(0) scale(1); } 25%, 40% { opacity: 1; transform: translateX(-4%) scale(1.12); } 100% { opacity: 0; transform: translateX(80%) scale(1.25); } }
+/* The fog lift when a game ends. It starts moving straight away. */
+@keyframes fogLeft  { 0% { opacity: .78; transform: translateX(0) scale(1); } 100% { opacity: 0; transform: translateX(-80%) scale(1.25); } }
+@keyframes fogRight { 0% { opacity: .78; transform: translateX(0) scale(1); } 100% { opacity: 0; transform: translateX(80%) scale(1.25); } }
 @keyframes fogDrift { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(6px); } }
 @keyframes shipIn   { 0% { opacity: 0; transform: translateY(4px); } 100% { opacity: 1; transform: translateY(0); } }
-.cloud { position: absolute; width: 68%; border-radius: 50%; background: #fff; filter: blur(12px); pointer-events: none; }
-.cloud--left.lifting  { animation: fogLeft 5000ms ease-in-out forwards; }
-.cloud--right.lifting { animation: fogRight 5000ms ease-in-out forwards; }
-.fog-reveal { animation: shipIn 1600ms ease 2400ms both; }
+.cloud { position: absolute; width: 68%; border-radius: 50%; background: var(--cloud); filter: blur(12px); pointer-events: none; }
+/* .fog-card in front so these win over the idle drift in app.css */
+.fog-card .cloud--left.lifting  { animation: fogLeft 2200ms ease-in forwards; }
+.fog-card .cloud--right.lifting { animation: fogRight 2200ms ease-in forwards; }
+/* The fleet starts to show almost at once, while the fog is still clearing. */
+.fog-reveal { animation: shipIn 900ms ease 250ms both; }
 @media (prefers-reduced-motion: reduce) { * { animation-duration: 1ms !important; animation-delay: 0ms !important; } }
+
+/* ---------- more themes ----------
+   Every color in the game is a variable in :root at the top of this file.
+   A new theme is a block like the one below that lists only the colors it changes.
+   Turn it on by setting THEME = 'dusk' in config.ts.
+   (The boats and creatures are drawings with their own paint, so they stay the same.)
+
+[data-theme="dusk"] {
+  --fog: #2B3440;
+  --paper: #3A4452;
+  --ink: #F1E6CC;
+}
+*/

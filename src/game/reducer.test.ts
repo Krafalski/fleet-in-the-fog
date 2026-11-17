@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { canLogGuess, newGame, reducer } from './reducer';
+import { alreadyGuessed, canLogGuess, newGame, reducer, totalGuesses } from './reducer';
 import type { Action, GameState } from './reducer';
 
 function play(state: GameState, ...actions: Action[]): GameState {
@@ -8,36 +8,35 @@ function play(state: GameState, ...actions: Action[]): GameState {
 const start = () => newGame('2026-11-15', 'easy');
 
 describe('placing ships', () => {
-  test('pick a ship, then tap slots to place it; the selection stays', () => {
-    const s = play(start(), { type: 'PICK_SHIP', ship: 4 }, { type: 'TAP_SLOT', slot: 0 }, { type: 'TAP_SLOT', slot: 2 });
-    expect(s.current).toEqual([4, null, 4, null]);
-    expect(s.selected).toBe(4);
+  test('picking ships fills the row from the left', () => {
+    const s = play(start(), { type: 'PICK_SHIP', ship: 4 }, { type: 'PICK_SHIP', ship: 2 }, { type: 'PICK_SHIP', ship: 4 });
+    expect(s.current).toEqual([4, 2, 4, null]);
   });
-  test('tapping an empty slot with nothing selected does nothing', () => {
-    expect(play(start(), { type: 'TAP_SLOT', slot: 1 }).current).toEqual([null, null, null, null]);
+  test('tap an empty spot first and the next ship goes there', () => {
+    const s = play(start(), { type: 'TAP_SLOT', slot: 2 }, { type: 'PICK_SHIP', ship: 5 }, { type: 'PICK_SHIP', ship: 0 });
+    expect(s.current).toEqual([0, null, 5, null]);
+    expect(s.cursor).toBe(null);
+  });
+  test('picking a ship when the row is full does nothing', () => {
+    const full = play(start(), ...[0, 1, 2, 3].map((ship): Action => ({ type: 'PICK_SHIP', ship })));
+    expect(play(full, { type: 'PICK_SHIP', ship: 5 })).toEqual(full);
   });
 });
 
 describe('rearranging', () => {
-  const filled = () =>
-    play(start(), { type: 'PICK_SHIP', ship: 1 }, { type: 'TAP_SLOT', slot: 0 }, { type: 'PICK_SHIP', ship: 5 }, { type: 'TAP_SLOT', slot: 1 });
+  const filled = () => play(start(), { type: 'PICK_SHIP', ship: 1 }, { type: 'PICK_SHIP', ship: 5 });
 
-  test('tap a placed ship to pick it up, tap another placed ship to swap', () => {
-    const s = play(filled(), { type: 'TAP_SLOT', slot: 0 }, { type: 'TAP_SLOT', slot: 1 });
-    expect(s.current).toEqual([5, 1, null, null]);
-    expect(s.held).toBe(null);
+  test('tap a placed ship to take it off', () => {
+    const s = play(filled(), { type: 'TAP_SLOT', slot: 0 });
+    expect(s.current).toEqual([null, 5, null, null]);
   });
-  test('tap a placed ship, then an empty slot, to move it', () => {
-    const s = play(filled(), { type: 'TAP_SLOT', slot: 0 }, { type: 'TAP_SLOT', slot: 3 });
-    expect(s.current).toEqual([null, 5, null, 1]);
-  });
-  test('tap a placed ship twice to clear it', () => {
-    const s = play(filled(), { type: 'TAP_SLOT', slot: 1 }, { type: 'TAP_SLOT', slot: 1 });
-    expect(s.current).toEqual([1, null, null, null]);
-  });
-  test('holding a ship and tapping the picker replaces it', () => {
+  test('the next ship picked goes where the removed one was', () => {
     const s = play(filled(), { type: 'TAP_SLOT', slot: 0 }, { type: 'PICK_SHIP', ship: 3 });
     expect(s.current).toEqual([3, 5, null, null]);
+  });
+  test('tapping the chosen spot again lets go of it', () => {
+    const s = play(filled(), { type: 'TAP_SLOT', slot: 3 }, { type: 'TAP_SLOT', slot: 3 }, { type: 'PICK_SHIP', ship: 2 });
+    expect(s.current).toEqual([1, 5, 2, null]);
   });
   test('clear row empties everything', () => {
     expect(play(filled(), { type: 'CLEAR_ROW' }).current).toEqual([null, null, null, null]);
@@ -46,9 +45,9 @@ describe('rearranging', () => {
 
 describe('logging a guess', () => {
   test('Log guess is only allowed when the row is full', () => {
-    let s = play(start(), { type: 'PICK_SHIP', ship: 2 }, { type: 'TAP_SLOT', slot: 0 }, { type: 'TAP_SLOT', slot: 1 }, { type: 'TAP_SLOT', slot: 2 });
+    let s = play(start(), { type: 'PICK_SHIP', ship: 2 }, { type: 'PICK_SHIP', ship: 2 }, { type: 'PICK_SHIP', ship: 2 });
     expect(canLogGuess(s)).toBe(false);
-    s = play(s, { type: 'TAP_SLOT', slot: 3 });
+    s = play(s, { type: 'PICK_SHIP', ship: 2 });
     expect(canLogGuess(s)).toBe(true);
   });
   test('a scored guess is added to the board and the row resets', () => {
@@ -67,18 +66,42 @@ describe('logging a guess', () => {
 
 describe('hints', () => {
   test('a hinted ship is greyed out, removed from the row, and cannot be picked', () => {
-    let s = play(start(), { type: 'PICK_SHIP', ship: 2 }, { type: 'TAP_SLOT', slot: 0 }, { type: 'HINT_GIVEN', ship: 2 });
+    let s = play(start(), { type: 'PICK_SHIP', ship: 2 }, { type: 'HINT_GIVEN', ship: 2 });
     expect(s.ruledOut).toEqual([2]);
     expect(s.hintsUsed).toBe(1);
     expect(s.current[0]).toBe(null);
-    expect(s.selected).toBe(null);
     s = play(s, { type: 'PICK_SHIP', ship: 2 });
-    expect(s.selected).toBe(null);
+    expect(s.current[0]).toBe(null);
   });
-  test("hard mode's free ruled-out ship does not count as a hint", () => {
-    const s = newGame('2026-11-15', 'hard', [3]);
-    expect(s.ruledOut).toEqual([3]);
-    expect(s.hintsUsed).toBe(0);
-    expect(s.current.length).toBe(6);
+});
+
+describe('replay', () => {
+  const guess = (status: 'playing' | 'won' | 'lost'): Action =>
+    ({ type: 'GUESS_SCORED', guess: [0, 1, 2, 3], feedback: { exact: 1, near: 0 }, status, answer: status === 'playing' ? null : [3, 3, 1, 1] });
+
+  test('clears the board but keeps counting guesses and hints', () => {
+    const s = play(start(), guess('playing'), guess('playing'), { type: 'HINT_GIVEN', ship: 5 }, { type: 'REPLAY' });
+    expect(s.guesses).toEqual([]);
+    expect(s.feedback).toEqual([]);
+    expect(s.rounds).toBe(2);
+    expect(totalGuesses(s)).toBe(2);
+    expect(s.ruledOut).toEqual([5]);
+    expect(totalGuesses(play(s, guess('playing')))).toBe(3);
+  });
+  test('works after the game is over, and hides the answer again', () => {
+    const s = play(start(), guess('lost'), { type: 'REPLAY' });
+    expect(s.status).toBe('playing');
+    expect(s.answer).toBe(null);
+  });
+});
+
+describe('alreadyGuessed', () => {
+  test('spots a row that was already logged, and only an exact match', () => {
+    let s = newGame('2026-11-16', 'easy');
+    s = reducer(s, { type: 'GUESS_SCORED', guess: [0, 1, 2, 3], feedback: { exact: 0, near: 0 }, status: 'playing', answer: null });
+    s = { ...s, current: [0, 1, 2, 3] };
+    expect(alreadyGuessed(s)).toBe(true);
+    s = { ...s, current: [0, 1, 3, 2] };
+    expect(alreadyGuessed(s)).toBe(false);
   });
 });
