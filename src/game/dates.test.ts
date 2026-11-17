@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { badgesForStreak, computeStreak } from './badges';
+import { badgesForStreak, computeStreak, yearsEarned } from './badges';
 import { addDays, formatDate, weekStart, weekdayName } from './dates';
 
 describe('dates', () => {
@@ -38,5 +38,16 @@ describe('streaks', () => {
     expect(badgesForStreak(7)).toEqual(['paper', 'rowboat', 'canoe']);
     expect(badgesForStreak(1000).includes('ghost')).toBe(false);
     expect(badgesForStreak(360).length).toBe(17);
+  });
+});
+
+describe('yearsEarned', () => {
+  test('year 1 at the day count, year 2 a year later, year 3 two years later, never more', () => {
+    expect(yearsEarned(30, 29)).toBe(0);
+    expect(yearsEarned(30, 30)).toBe(1);
+    expect(yearsEarned(30, 389)).toBe(1);
+    expect(yearsEarned(30, 390)).toBe(2);
+    expect(yearsEarned(30, 750)).toBe(3);
+    expect(yearsEarned(1, 5000)).toBe(3);
   });
 });

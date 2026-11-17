@@ -39,6 +39,19 @@ export function badgesForStreak(streak: number): string[] {
   return BADGES.filter((b) => b.days !== null && b.days <= streak).map((b) => b.kind);
 }
 
+// Each boat comes back in new colors every year the streak keeps going:
+// year 2 at its day count + 360, year 3 at its day count + 720. Three years is the most.
+export const DAYS_PER_YEAR = 360;
+export const MOST_YEARS = 3;
+export function yearsEarned(days: number, streak: number): number {
+  if (streak < days) return 0;
+  return Math.min(MOST_YEARS, 1 + Math.floor((streak - days) / DAYS_PER_YEAR));
+}
+
+// The final award, the Fleet Admiral cup: earned the day after the last boat (the Golden galleon)
+// finishes its third year, so a streak of 360 + 720 + 1 = 1081 days.
+export const TROPHY_DAYS = Math.max(...BADGES.map((b) => b.days ?? 0)) + (MOST_YEARS - 1) * DAYS_PER_YEAR + 1;
+
 // How many days in a row the player has solved a puzzle, ending today
 // (or yesterday, if today's has not been played yet).
 // Days mended with a streak repair keep the run going but do not add to the count.

@@ -54,7 +54,7 @@ describe('puzzleForDate', () => {
         for (const ship of code) {
           expect(ship).toBeGreaterThanOrEqual(0);
           expect(ship).toBeLessThan(6);
-          expect(code.filter((s) => s === ship).length).toBeLessThanOrEqual(MAX_REPEATS);
+          expect(code.filter((s) => s === ship).length).toBeLessThanOrEqual(MAX_REPEATS ?? code.length);
           expect(ruledOut.includes(ship)).toBe(false);
         }
       }
@@ -125,14 +125,11 @@ describe('scoreSpots', () => {
   });
 });
 
-describe('easy leaves out the yacht', () => {
-  test('easy puzzles never use ship 5, and hints stay within ships 0-4', () => {
-    for (let d = 1; d <= 28; d++) {
-      const day = `2026-12-${String(d).padStart(2, '0')}`;
-      expect(puzzleForDate(day, 'easy').code.includes(5)).toBe(false);
-    }
-    expect(nextHint([0, 1, 2, 3], [], MODES.easy.ships)).toBe(4);
-    expect(nextHint([0, 1, 2, 3], [4], MODES.easy.ships)).toBe(null);
+describe('ships in play', () => {
+  test('hints stay within the ships in play', () => {
+    expect(nextHint([0, 1, 2, 3], [], 5)).toBe(4);
+    expect(nextHint([0, 1, 2, 3], [4], 5)).toBe(null);
+    expect(nextHint([0, 1, 2, 3], [4], MODES.easy.ships)).toBe(5);
   });
   test('randomCode only picks from the ships in play', () => {
     let n = 0;
@@ -142,5 +139,19 @@ describe('easy leaves out the yacht', () => {
   test('practice puzzles differ from game to game', () => {
     const a = puzzleForDate('practice-1', 'practice').code.join(), b = puzzleForDate('practice-2', 'practice').code.join();
     expect(a === b).toBe(false);
+  });
+});
+
+describe('no repeat limit', () => {
+  test('with no limit, a fleet can be all one ship', () => {
+    if (MAX_REPEATS !== null) return; // only checked when the limit is off
+    let allSame = false;
+    for (let seed = 1; seed < 20000 && !allSame; seed++) {
+      let n = seed;
+      const rand = () => ((n = (n * 16807) % 2147483647) / 2147483647);
+      const code = randomCode(4, rand, 6);
+      allSame = code.every((s) => s === code[0]);
+    }
+    expect(allSame).toBe(true);
   });
 });

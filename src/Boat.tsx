@@ -15,7 +15,7 @@ export type BoatLook = 'color' | 'locked' | 'year2' | 'year3';
 // Game ships in tray order (alphabetical, each a different first letter).
 export const SHIP_KINDS: ShipKind[] = ['fisher', 'junk', 'mailboat', 'schooner', 'tug', 'yacht'];
 export const SHIP_NAMES: Record<ShipKind, string> = {
-  fisher: 'Fisher', junk: 'Junk', mailboat: 'Mailboat', schooner: 'Schooner', tug: 'Tug', yacht: 'Yacht',
+  fisher: 'Yellow fisher', junk: 'Purple junk', mailboat: 'Red mailboat', schooner: 'Green schooner', tug: 'Blue tug', yacht: 'Pink yacht',
 };
 
 // Badge boats in earning order.

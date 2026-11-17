@@ -4,6 +4,8 @@
 // Double tap a boat in the harbor to switch it to the next colorway the player has unlocked.
 // At the bottom: the rescue dolphin with the player's streak repairs, and the offer to use them if a streak broke.
 import { useEffect, useRef, useState } from 'react';
+import { Trophy } from '../Trophy';
+import { TROPHY_DAYS } from '../game/badges';
 import { Boat } from '../Boat';
 import type { BadgeKind, BoatLook } from '../Boat';
 import { Creature, CREATURE_LADDER, CREATURE_NAMES } from '../Creature';
@@ -70,6 +72,8 @@ export function Fleet({ today, onClose }: Props) {
   const [offer, setOffer] = useState<RepairOffer | null>(null);
   const [repairsUsed, setRepairsUsed] = useState(0); // goes up after a repair, so everything reloads
   const [stats, setStats] = useState<Stats>(NO_STATS);
+  const [trophy, setTrophy] = useState<string | null>(null);
+  const [streak, setStreak] = useState(0);
   // What the detail card shows: a boat's kind, or a creature's kind.
   const [picked, setPicked] = useState<string>(BADGES[0].kind);
 
@@ -83,6 +87,8 @@ export function Fleet({ today, onClose }: Props) {
       setRepairs(progress.repairs);
       setNextRepairIn(progress.nextRepairIn);
       setOffer(progress.repairOffer);
+      setTrophy(progress.trophy);
+      setStreak(progress.streak);
     });
     api.loadStats().then((loaded) => {
       if (!cancelled) setStats(loaded);
@@ -206,6 +212,26 @@ export function Fleet({ today, onClose }: Props) {
         </ul>
       ) : (
         <>
+          <div className={`trophy-card${trophy ? ' is-lit' : ''}`}>
+            <Trophy size={1.1} locked={!trophy} />
+            <div>
+              <strong>Fleet Admiral</strong>
+              {trophy ? (
+                <p>You are the fleet. Earned {formatDate(trophy, false)}.</p>
+              ) : (
+                <p>Keep every boat sailing for three years, then one more day. {Math.max(0, TROPHY_DAYS - streak)} days to go.</p>
+              )}
+            </div>
+          </div>
+
+          <header className="fleet__section-head">
+            <h2>Wins in…</h2>
+            <p>Each creature is a sighting for solving in that many guesses.</p>
+            <div className="fleet__key" aria-label="Counts: left is Easy, right is Hard">
+              <span><i />Easy</span>
+              <span><i className="is-hard" />Hard</span>
+            </div>
+          </header>
           <div className="sightings" role="group" aria-label="Sightings">
             {sightings.map((s) => (
               <button
@@ -221,6 +247,10 @@ export function Fleet({ today, onClose }: Props) {
             ))}
           </div>
 
+          <header className="fleet__section-head">
+            <h2>Streak fleet</h2>
+            <p>The more days you play, the bigger your fleet grows.</p>
+          </header>
           <div className="harbor">
             {BADGES.map((badge) => {
               const d = describe(badge);

@@ -43,5 +43,6 @@ export const THEME = 'harbor';
 export const NEW_GAME_TIME = '00:00';
 export const NEW_GAME_ZONE = 'UTC';
 
-// The most times one ship can appear in an answer. 2 is gentle, 3 allows surprises, 5 is classic Mastermind.
-export const MAX_REPEATS = 2;
+// The most times one ship can appear in an answer, in every mode.
+// null = no limit (classic Mastermind: some days the whole fleet can be one boat). 2 is gentle, 3 allows surprises.
+export const MAX_REPEATS: number | null = null;

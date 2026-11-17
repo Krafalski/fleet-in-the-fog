@@ -6,7 +6,7 @@
 import { useEffect, useReducer, useRef, useState } from 'react';
 import { api, newPracticeKey } from '../api';
 import type { Outcome } from '../api';
-import { AnchorMark, Board } from '../components/Board';
+import { AnchorMark, Board, MiniAnchor as MiniAnchorIcon } from '../components/Board';
 import { DayPanel } from '../components/DayPanel';
 import { FogCard } from '../components/FogCard';
 import { ShipPicker } from '../components/ShipPicker';
@@ -162,21 +162,17 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
         <>
           <span><AnchorMark kind="exact" size={18} />Right spot</span>
           <span><AnchorMark kind="near" size={18} />Wrong spot</span>
-          <span className="legend__none">None: not in fleet</span>
+          <span className="legend__none">No anchor: no match</span>
         </>
       ) : (
         <>
-          <span><i className="peg peg--exact" />Right ship, right spot</span>
-          <span><i className="peg peg--near" />Wrong spot</span>
+          <span><i className="mini-anchor mini-anchor--exact"><MiniAnchorIcon /></i>Right ship, right spot</span>
+          <span><i className="mini-anchor mini-anchor--near"><MiniAnchorIcon /></i>Wrong spot</span>
         </>
       )}
       {!over && <strong>{status}</strong>}
     </div>
   );
-  const legendNote = state.perSpot
-    ? <p className="legend__note">Each mark sits under its ship.</p>
-    : <p className="legend__note">Marks are totals for the row, in no order.</p>;
-
   return (
     <main className={`screen game game--${mode}${testGame ? ' is-test' : ''}${replaying ? ' is-replay' : ''}`}>
       <TopBar subtitle={practice ? 'Practice · a new fleet every game' : `Harbor log · ${formatDate(dateKey)}`} onOpenLog={onOpenLog} onOpenFleet={onOpenFleet} />
@@ -191,6 +187,15 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
           Practice
         </button>
       </div>
+
+      {/* One line saying how this mode's feedback works. */}
+      <p className="mode-line">
+        {practice
+          ? 'Practice: a new fleet every game, nothing counts.'
+          : mode === 'easy'
+            ? 'Easy: an anchor under each ship tells you about that ship.'
+            : 'Hard: anchors at the end of each row are totals, in no order.'}
+      </p>
 
       {practice && (
         <div className="feedback-toggle" role="group" aria-label="Feedback">
@@ -221,7 +226,6 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
 
           <Board state={state} boatSize={BOAT_SIZE[mode]} onTapSlot={(slot) => dispatch({ type: 'TAP_SLOT', slot })} lastRow={ending ? state.status : undefined} />
           {legend}
-          {legendNote}
           <ShipPicker ships={MODES[mode].ships} ruledOut={state.ruledOut} disabled={over} onPick={(ship) => dispatch({ type: 'PICK_SHIP', ship })} />
 
           {!ending && (
@@ -280,7 +284,6 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
           <Board state={state} boatSize={BOAT_SIZE[mode]} onTapSlot={(slot) => dispatch({ type: 'TAP_SLOT', slot })} lastRow={ending ? state.status : undefined} />
 
           {legend}
-          {state.guesses.length === 0 && legendNote}
 
           <ShipPicker ships={MODES[mode].ships} ruledOut={state.ruledOut} disabled={over} onPick={(ship) => dispatch({ type: 'PICK_SHIP', ship })} />
 

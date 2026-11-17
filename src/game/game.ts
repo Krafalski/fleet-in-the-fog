@@ -14,11 +14,11 @@ export type DailyMode = 'easy' | 'hard';
 export type Mode = DailyMode | 'practice';
 export const MODE_LIST: DailyMode[] = ['easy', 'hard'];
 
-// slots = spots in a row. ships = how many kinds of ship are in play (Easy leaves out ship 5, the yacht).
+// slots = spots in a row. ships = how many kinds of ship are in play (all six in every mode for now).
 // perSpot = feedback marks sit under each ship (true) or are only totals at the end of the row (false).
 // Practice lets the player switch perSpot with a toggle; this is only its starting value.
 export const MODES: Record<Mode, { slots: number; ships: number; maxGuesses: number; perSpot: boolean; label: string }> = {
-  easy: { slots: 4, ships: 5, maxGuesses: 8, perSpot: true, label: 'Easy' },
+  easy: { slots: 4, ships: 6, maxGuesses: 8, perSpot: true, label: 'Easy' },
   hard: { slots: 5, ships: 6, maxGuesses: 10, perSpot: false, label: 'Hard' },
   practice: { slots: 5, ships: 6, maxGuesses: 10, perSpot: true, label: 'Practice' },
 };
@@ -114,12 +114,12 @@ export function puzzleForDate(dateKey: string, mode: Mode): Puzzle {
   return { code: randomCode(slots, seededRandom(hashString(`fleet-in-the-fog:${dateKey}:${mode}`)), ships), ruledOut: [] };
 }
 
-// Picks ships one spot at a time, never using one ship more than MAX_REPEATS times.
+// Picks ships one spot at a time, never using one ship more than MAX_REPEATS times (any number when it's null).
 // `rand` returns a number from 0 up to (not including) 1, like Math.random.
 // `ships` = how many kinds are in play (ships 0 up to ships-1).
 export function randomCode(slots: number, rand: () => number, ships = SHIP_COUNT): Ship[] {
   // Never fewer repeats than it takes to fill the row, or the loop below could not finish.
-  const maxRepeats = Math.max(1, MAX_REPEATS, Math.ceil(slots / ships));
+  const maxRepeats = MAX_REPEATS === null ? slots : Math.max(1, MAX_REPEATS, Math.ceil(slots / ships));
   const code: Ship[] = [];
   const used = new Array<number>(ships).fill(0);
   while (code.length < slots) {

@@ -87,7 +87,7 @@ function Water({ slots, layer }: { slots: number; layer: 'back' | 'front' }) {
 // White anchor = right ship, wrong spot. Nothing = not in the fleet.
 // They sit on the water, lined up with the spots, and drop in one at a time.
 function SpotMarks({ spots, reveal }: { spots: Spot[]; reveal: boolean }) {
-  const words = { exact: 'right spot', near: 'wrong spot', miss: 'not in the fleet' };
+  const words = { exact: 'right spot', near: 'wrong spot', miss: 'no match' };
   return (
     <div className="spot-marks" role="img" aria-label={spots.map((s, i) => `spot ${i + 1} ${words[s]}`).join(', ')}>
       {spots.map((s, i) => (
@@ -117,6 +117,15 @@ export function AnchorMark({ kind, size = 16 }: { kind: 'exact' | 'near'; size?:
   );
 }
 
+// The anchor shape alone, small, for the totals grid (no outline; the white one gets a hairline edge in CSS).
+export function MiniAnchor() {
+  return (
+    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="5.3" r="2" /><line x1="12" y1="7.3" x2="12" y2="20" /><line x1="8.5" y1="10.8" x2="15.5" y2="10.8" /><path d="M5 13.5 Q5.5 20 12 20 Q18.5 20 19 13.5" />
+    </svg>
+  );
+}
+
 // Feedback dots in a fixed grid: filled = right ship, right spot. Ring = right ship, wrong spot.
 // On the newest row they light up one at a time.
 function Pegs({ feedback, slots, reveal }: { feedback: Feedback | null; slots: number; reveal: boolean }) {
@@ -125,7 +134,10 @@ function Pegs({ feedback, slots, reveal }: { feedback: Feedback | null; slots: n
   for (let i = 0; i < slots; i++) {
     const kind = !feedback ? 'blank' : i < feedback.exact ? 'exact' : i < feedback.exact + feedback.near ? 'near' : 'miss';
     const style = { '--i': i } as CSSProperties; // read by the CSS to delay each dot a little more
-    pegs.push(<span key={i} className={`peg peg--${kind}${reveal && feedback ? ' peg--reveal' : ''}`} style={style} />);
+    // Right ship, right spot = small black anchor. Right ship, wrong spot = small white anchor. Otherwise a tiny dot.
+    pegs.push(kind === 'exact' || kind === 'near'
+      ? <span key={i} className={`mini-anchor mini-anchor--${kind}${reveal ? ' peg--reveal' : ''}`} style={style}><MiniAnchor /></span>
+      : <span key={i} className={`peg peg--${kind}`} style={style} />);
   }
   return <div className={`pegs${slots > 4 ? ' pegs--wide' : ''}`} role="img" aria-label={label}>{pegs}</div>;
 }

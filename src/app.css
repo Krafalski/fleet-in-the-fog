@@ -279,3 +279,43 @@ h1, h2, p { margin: 0; }
 .legend { flex-wrap: wrap; row-gap: 4px; }
 .legend span, .legend strong { white-space: nowrap; }
 .legend strong { margin-left: auto; }
+
+/* ---------- Hard: small anchors in the totals grid ---------- */
+.pegs { grid-template-columns: repeat(2, 13px); }
+.pegs--wide { grid-template-columns: repeat(3, 13px); }
+.pegs .peg--miss, .pegs .peg--blank { width: 5px; height: 5px; margin: 4px; }
+.mini-anchor { display: flex; width: 13px; height: 13px; font-style: normal; }
+.mini-anchor svg { stroke-width: 3; }
+.mini-anchor--exact svg { stroke: var(--soot); }
+.mini-anchor--near svg { stroke: #FFFFFF; filter: drop-shadow(0 0 0.6px var(--soot)) drop-shadow(0 0 0.6px var(--soot)); }
+.legend .mini-anchor { flex: none; }
+
+/* ---------- fleet section headers ---------- */
+.fleet__section-head { display: flex; flex-direction: column; gap: 2px; padding: 0 4px; }
+.fleet__section-head h2 { font-family: var(--font-display); font-weight: 500; font-size: 20px; margin: 0; }
+.fleet__section-head p { margin: 0; font-size: 13px; color: var(--ink-muted); }
+.fleet__key { display: flex; gap: 14px; margin-top: 4px; font-size: 12px; color: var(--ink-muted); }
+.fleet__key span { display: flex; align-items: center; gap: 5px; }
+.fleet__key i { width: 16px; height: 16px; border-radius: 8px; background: var(--paper); box-shadow: 0 0 0 1px var(--line); }
+.fleet__key i.is-hard { background: var(--ink); box-shadow: none; }
+
+/* ---------- new colors and the Fleet Admiral cup ---------- */
+.new-colors, .trophy-card { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 16px; background: var(--panel); border: 2px dashed var(--line-dashed); }
+.new-colors { background: var(--lantern-pale); border: 2px solid var(--lantern); }
+.new-colors__boats { display: flex; flex: none; }
+.new-colors__boats > * + * { margin-left: -14px; }
+.new-colors strong, .trophy-card strong { font-family: var(--font-display); font-weight: 500; font-size: 18px; }
+.new-colors p, .trophy-card p { margin: 2px 0 0; font-size: 13px; color: var(--ink-muted); }
+.trophy-card svg { flex: none; }
+.trophy-card.is-lit { background: var(--lantern-pale); border: 2px solid var(--lantern); box-shadow: 0 0 16px var(--lantern-glow); }
+
+/* Ship names in the picker: color on top, ship below. */
+.picker__name { display: flex; flex-direction: column; align-items: center; line-height: 1.15; }
+.picker__name b { font-weight: 700; }
+
+/* One line under the mode buttons saying how feedback works. */
+.mode-line { margin: -4px 0 0; text-align: center; font-size: 12px; color: var(--ink-muted); }
+.share-btn { align-self: center; }
+
+/* The key to the emoji in the copied result, right under the Copy button. */
+.share-key { margin: -6px 0 0; text-align: center; font-size: 12px; color: var(--ink-muted); }

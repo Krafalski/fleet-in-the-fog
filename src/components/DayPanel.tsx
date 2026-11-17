@@ -4,6 +4,7 @@
 // mended, the boat spot shows the rescue dolphin's offer instead.
 import { useEffect, useState } from 'react';
 import { Boat } from '../Boat';
+import { Trophy } from '../Trophy';
 import type { BadgeKind } from '../Boat';
 import { Creature, CREATURE_LADDER, CREATURE_NAMES } from '../Creature';
 import { MOST_GUESSES_TRACKED, api } from '../api';
@@ -15,6 +16,7 @@ import { totalGuesses } from '../game/reducer';
 import type { GameState } from '../game/reducer';
 import type { RepairStock } from '../game/repairs';
 import { RepairCard } from './RepairCard';
+import { SHARE_MARKS, shareText } from '../game/share';
 
 type Props = {
   state: GameState;          // the finished game
@@ -29,6 +31,9 @@ export function DayPanel({ state, outcome, today, onMode, onOpenLog, onOpenFleet
   const [day, setDay] = useState<Record<DailyMode, DayResult | undefined> | null>(null);
   const [streak, setStreak] = useState<number | null>(null);
   const [badges, setBadges] = useState<Record<string, string>>({}); // badge kind -> day earned
+  const [newColorsOn, setNewColorsOn] = useState<Record<string, string>>({}); // badge kind -> day its new colors came
+  const [years, setYears] = useState<Record<string, number>>({});
+  const [trophy, setTrophy] = useState<string | null>(null);
   const [everyone, setEveryone] = useState<DayStats | null>(null);
   const [repairs, setRepairs] = useState<RepairStock>({ ones: 0, threes: 0 });
   const [offer, setOffer] = useState<RepairOffer | null>(null);
@@ -41,6 +46,7 @@ export function DayPanel({ state, outcome, today, onMode, onOpenLog, onOpenFleet
     api.loadProgress(today).then((p) => {
       if (cancelled) return;
       setStreak(p.streak); setBadges(p.badges); setRepairs(p.repairs); setOffer(p.repairOffer);
+      setNewColorsOn(p.newColorsOn); setYears(p.timesEarned); setTrophy(p.trophy);
     });
     api.loadDayStats(state.dateKey, state.mode).then((s) => { if (!cancelled) setEveryone(s); });
     return () => { cancelled = true; };
@@ -73,6 +79,34 @@ export function DayPanel({ state, outcome, today, onMode, onOpenLog, onOpenFleet
   const nextBoat = BADGES.find((b) => b.days !== null && !badges[b.kind]);
   const lastBoat = BADGES.filter((b) => b.days !== null && badges[b.kind]).pop();
   const quietBoat = lastBoat ?? nextBoat;
+  // Boats that came back in new colors with this game (a year passed for them).
+  const recolored = earnedOn ? BADGES.filter((b) => newColorsOn[b.kind] === earnedOn) : [];
+  const trophyToday = !!earnedOn && trophy === earnedOn;
+  // Copy result: a spoiler-free grid for the day's thread. Hidden for Practice (it has no day to compare).
+  const [copied, setCopied] = useState(false);
+  async function copyResult() {
+    const text = shareText({
+      dateKey: state.dateKey, mode: state.mode, won, guesses,
+      creature: won ? CREATURE_NAMES[creature.kind] : null,
+      streak,
+      rows: state.rounds > 1 ? null : state.feedback, // a replay's board isn't the game that counts
+      perSpot: state.perSpot,
+    });
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // Older browsers: copy through a hidden text box.
+      const box = document.createElement('textarea');
+      box.value = text;
+      document.body.appendChild(box);
+      box.select();
+      document.execCommand('copy');
+      box.remove();
+    }
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 2000);
+  }
+
   const daysToGo = nextBoat && nextBoat.days !== null && streak !== null ? nextBoat.days - streak : null;
 
   return (
@@ -120,6 +154,42 @@ export function DayPanel({ state, outcome, today, onMode, onOpenLog, onOpenFleet
           </div>
         ) : null}
       </div>
+
+      {recolored.length > 0 && (
+        <div className="new-colors">
+          <div className="new-colors__boats">
+            {recolored.slice(-3).map((b) => (
+              <Boat key={b.kind} kind={b.kind as BadgeKind} look={years[b.kind] >= 3 ? 'year3' : 'year2'} size={1} />
+            ))}
+          </div>
+          <div>
+            <strong>New year, new colors!</strong>
+            <p>
+              {recolored.length === 1
+                ? `Your ${recolored[0].name.toLowerCase()} has sailed with you for another year, and earned new colors.`
+                : `${recolored.length} boats have sailed with you for another year, and earned new colors.`}
+              {' '}Double tap a boat in your fleet to switch.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {trophyToday && (
+        <div className="trophy-card is-lit">
+          <Trophy size={1.1} />
+          <div>
+            <strong>Fleet Admiral</strong>
+            <p>You are the fleet. Every boat, three years at sea, and one more day.</p>
+          </div>
+        </div>
+      )}
+
+      <button type="button" className="outline-btn share-btn" onClick={copyResult}>
+        {copied ? 'Copied! Paste it in the comments' : 'Copy result (no spoilers)'}
+      </button>
+      <p className="share-key">
+        {SHARE_MARKS.exact} right spot · {SHARE_MARKS.near} wrong spot · {SHARE_MARKS.miss} no match
+      </p>
 
       {otherPlayed ? (
         <button type="button" className="primary-btn" onClick={onOpenLog}>Check the logs</button>

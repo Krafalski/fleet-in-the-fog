@@ -9,7 +9,7 @@
 //     const res = await fetch('/api/guess', { method: 'POST', body: JSON.stringify({ dateKey, mode, guess }) });
 // The server runs puzzleForDate() and score(), saves to Redis, and sends back only the feedback.
 // Nothing else in the app has to change.
-import { BADGES, MYSTERY_BADGE, badgesForStreak, computeStreak } from './game/badges';
+import { BADGES, TROPHY_DAYS, yearsEarned, MYSTERY_BADGE, badgesForStreak, computeStreak } from './game/badges';
 import type { BoatLook } from './Boat';
 import { testGame } from './config';
 import { MODES, MODE_LIST, isWin, nextHint, puzzleForDate, score, scoreSpots } from './game/game';
@@ -36,6 +36,8 @@ export type Progress = {
   streak: number;
   badges: Record<string, string>;      // badge kind -> day first earned
   timesEarned: Record<string, number>; // badge kind -> how many years it has been earned (1 to 3); sets how many colorways are unlocked
+  newColorsOn: Record<string, string>; // badge kind -> the day its latest colorway (year 2 or 3) was unlocked
+  trophy: string | null;               // the day the Fleet Admiral cup was earned, or null
   looks: Record<string, BoatLook>;     // badge kind -> the colorway the player chose to show
   repairs: RepairStock;                // streak repairs the player has, ready to use
   nextRepairIn: number;                // days of play until the next repair is earned
@@ -119,7 +121,10 @@ const REPAIRS_KEY = `${STORE}:repairs`; // { usedOnes: 1, usedThrees: 0, days: [
 const TEST_REPAIRS: RepairStock = testGame ? { ones: 2, threes: 2 } : { ones: 0, threes: 0 };
 // Earning a boat again in a later year is not built yet, so a real boat counts as earned once.
 // In test games every earned boat counts three times, so the colorway switching can be tried.
-const TIMES_EARNED = testGame ? 3 : 1;
+// badge kind -> how many years of colors it has earned (1 to 3). Kept even if the streak later breaks.
+const YEARS_KEY = `${STORE}:years`;
+const YEARS_ON_KEY = `${STORE}:yearsOn`; // badge kind -> day its latest colors unlocked
+const TROPHY_KEY = `${STORE}:trophy`;     // the day the Fleet Admiral cup was earned
 
 type RepairsUsed = { usedOnes: number; usedThrees: number; days: string[] }; // days = the missed days that were mended
 const readRepairs = () => read<RepairsUsed>(REPAIRS_KEY, { usedOnes: 0, usedThrees: 0, days: [] });
@@ -158,6 +163,22 @@ function awardStreakBadges(streak: number, today: string, extra: string[] = []):
   const newBadges = [...badgesForStreak(streak), ...extra].filter((kind) => !badges[kind]);
   for (const kind of newBadges) badges[kind] = today;
   if (newBadges.length) write(BADGES_KEY, badges);
+  // Second and third years: a long enough streak unlocks each boat's next colorway.
+  const years = read<Record<string, number>>(YEARS_KEY, {});
+  const yearsOn = read<Record<string, string>>(YEARS_ON_KEY, {});
+  let changed = false;
+  for (const badge of BADGES) {
+    if (badge.days === null) continue;
+    const now = yearsEarned(badge.days, streak);
+    if (now > (years[badge.kind] ?? 0)) {
+      if (now > 1) yearsOn[badge.kind] = today; // year 1 is the boat itself; only new colors are dated here
+      years[badge.kind] = now;
+      changed = true;
+    }
+  }
+  if (changed) { write(YEARS_KEY, years); write(YEARS_ON_KEY, yearsOn); }
+  // The final award, once.
+  if (streak >= TROPHY_DAYS && !read<string | null>(TROPHY_KEY, null)) write(TROPHY_KEY, today);
   // Keep them in ladder order, so the biggest one comes last.
   newBadges.sort((a, b) => BADGES.findIndex((x) => x.kind === a) - BADGES.findIndex((x) => x.kind === b));
   return newBadges;
@@ -254,13 +275,16 @@ export const localApi: GameApi = {
   async loadProgress(today) {
     const badges = read<Record<string, string>>(BADGES_KEY, {});
     const timesEarned: Record<string, number> = {};
-    for (const kind of Object.keys(badges)) timesEarned[kind] = TIMES_EARNED;
+    const years = read<Record<string, number>>(YEARS_KEY, {});
+    for (const kind of Object.keys(badges)) timesEarned[kind] = Math.max(1, years[kind] ?? 1);
     const results = read<Record<string, DayResult>>(RESULTS_KEY, {});
     const { repairs, nextRepairIn, offer } = repairState(results, today);
     return {
       streak: streakFrom(results, today),
       badges,
       timesEarned,
+      newColorsOn: read<Record<string, string>>(YEARS_ON_KEY, {}),
+      trophy: read<string | null>(TROPHY_KEY, null),
       looks: read<Record<string, BoatLook>>(LOOKS_KEY, {}),
       repairs,
       nextRepairIn,

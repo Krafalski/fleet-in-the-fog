@@ -19,7 +19,11 @@ export function ShipPicker({ ships, ruledOut, disabled, onPick }: Props) {
             aria-label={`${SHIP_NAMES[kind]}${out ? ', ruled out' : ''}`}
           >
             <Boat kind={kind} look={out ? 'locked' : 'color'} />
-            <span className="picker__name">{SHIP_NAMES[kind]}</span>
+            {/* Two short lines so the names fit six across: the color, then the ship. */}
+            <span className="picker__name">
+              <b>{SHIP_NAMES[kind].split(' ')[0]}</b>
+              <span>{SHIP_NAMES[kind].split(' ').slice(1).join(' ')}</span>
+            </span>
           </button>
         );
       })}
