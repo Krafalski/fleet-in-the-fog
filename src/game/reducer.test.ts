@@ -108,12 +108,12 @@ describe('alreadyGuessed', () => {
 
 describe('practice actions', () => {
   test('giving up ends the game and shows the answer', () => {
-    const s = reducer(newGame('practice-1', 'practice'), { type: 'GAVE_UP', answer: [0, 1, 2, 3, 4] });
+    const s = reducer(newGame('practice-1', 'practice-hard'), { type: 'GAVE_UP', answer: [0, 1, 2, 3, 4] });
     expect(s.status).toBe('lost');
     expect(s.answer).toEqual([0, 1, 2, 3, 4]);
   });
   test('the feedback toggle works even after the game is over', () => {
-    let s = reducer(newGame('practice-1', 'practice'), { type: 'GAVE_UP', answer: [0, 1, 2, 3, 4] });
+    let s = reducer(newGame('practice-1', 'practice-hard'), { type: 'GAVE_UP', answer: [0, 1, 2, 3, 4] });
     s = reducer(s, { type: 'SET_PER_SPOT', perSpot: false });
     expect(s.perSpot).toBe(false);
   });

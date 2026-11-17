@@ -9,6 +9,9 @@ import type { GameState } from '../game/reducer';
 // How often one of the shapes in the fog changes.
 const SHAPE_CHANGE_MS = 3200;
 
+// The fog card is kept small so the board gets the room: its ships are drawn at this fraction of board size.
+const FOG_SCALE = 0.72;
+
 export function FogCard({ state, boatSize }: { state: GameState; boatSize: number }) {
   const { slots, ships } = MODES[state.mode];
   const randomShip = (): Ship => Math.floor(Math.random() * Math.min(ships, SHIP_COUNT));
@@ -48,8 +51,8 @@ export function FogCard({ state, boatSize }: { state: GameState; boatSize: numbe
                 aria-label={ship !== null ? `Spot ${i + 1}, ${SHIP_NAMES[SHIP_KINDS[ship]]}` : `Spot ${i + 1}, hidden in fog`}
               >
                 {ship !== null
-                  ? <Boat kind={SHIP_KINDS[ship]} size={boatSize} />
-                  : <span key={shapes[i]} className="fog-spot__shape"><Boat kind={SHIP_KINDS[shapes[i]]} size={boatSize} /></span>}
+                  ? <Boat kind={SHIP_KINDS[ship]} size={boatSize * FOG_SCALE} />
+                  : <span key={shapes[i]} className="fog-spot__shape"><Boat kind={SHIP_KINDS[shapes[i]]} size={boatSize * FOG_SCALE} /></span>}
               </div>
             );
           })}

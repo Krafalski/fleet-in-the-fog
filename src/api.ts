@@ -12,14 +12,14 @@
 import { BADGES, TROPHY_DAYS, yearsEarned, MYSTERY_BADGE, badgesForStreak, computeStreak } from './game/badges';
 import type { BoatLook } from './Boat';
 import { testGame } from './config';
-import { MODES, MODE_LIST, isWin, nextHint, puzzleForDate, score, scoreSpots } from './game/game';
+import { MODES, MODE_LIST, dateKeyFor, isPractice, isWin, nextHint, puzzleForDate, score, scoreSpots } from './game/game';
 import type { DailyMode, Feedback, Mode, Ship } from './game/game';
 import { newGame, totalGuesses } from './game/reducer';
 import { DAYS_PER_REPAIR, daysCovered, findGap, pickRepairs, repairsEarned } from './game/repairs';
 import type { RepairStock } from './game/repairs';
 import type { GameState, Status } from './game/reducer';
 
-export type GuessResult = { feedback: Feedback; status: Status; answer: Ship[] | null };
+export type GuessResult = { feedback: Feedback; status: Status; answer: Ship[] | null ; albatross?: boolean };
 
 // One finished puzzle.
 export type DayResult = {
@@ -38,6 +38,7 @@ export type Progress = {
   timesEarned: Record<string, number>; // badge kind -> how many years it has been earned (1 to 3); sets how many colorways are unlocked
   newColorsOn: Record<string, string>; // badge kind -> the day its latest colorway (year 2 or 3) was unlocked
   trophy: string | null;               // the day the Fleet Admiral cup was earned, or null
+  albatross: string | null;            // the day the albatross was first sighted, or null
   looks: Record<string, BoatLook>;     // badge kind -> the colorway the player chose to show
   repairs: RepairStock;                // streak repairs the player has, ready to use
   nextRepairIn: number;                // days of play until the next repair is earned
@@ -110,7 +111,7 @@ function write(key: string, value: unknown): void {
 // Test games get their own storage, so flipping testGame never mixes them with real games.
 export const STORE = testGame ? 'fog-test' : 'fog';
 // There is only ever one practice game in progress, so it has one fixed key.
-const gameKey = (dateKey: string, mode: Mode) => (mode === 'practice' ? `${STORE}:practice` : `${STORE}:game:${dateKey}:${mode}`);
+const gameKey = (dateKey: string, mode: Mode) => (isPractice(mode) ? `${STORE}:${mode}` : `${STORE}:game:${dateKey}:${mode}`);
 // A made-up key that seeds a new random practice puzzle.
 export const newPracticeKey = () => `practice-${Date.now()}`;
 const RESULTS_KEY = `${STORE}:results`; // { '2026-11-15:easy': DayResult }
@@ -125,6 +126,8 @@ const TEST_REPAIRS: RepairStock = testGame ? { ones: 2, threes: 2 } : { ones: 0,
 const YEARS_KEY = `${STORE}:years`;
 const YEARS_ON_KEY = `${STORE}:yearsOn`; // badge kind -> day its latest colors unlocked
 const TROPHY_KEY = `${STORE}:trophy`;     // the day the Fleet Admiral cup was earned
+// The albatross: a daily guess with every ship right and every one in the wrong spot. Earned once.
+const ALBATROSS_KEY = `${STORE}:albatross`;
 
 type RepairsUsed = { usedOnes: number; usedThrees: number; days: string[] }; // days = the missed days that were mended
 const readRepairs = () => read<RepairsUsed>(REPAIRS_KEY, { usedOnes: 0, usedThrees: 0, days: [] });
@@ -186,7 +189,7 @@ function awardStreakBadges(streak: number, today: string, extra: string[] = []):
 
 export const localApi: GameApi = {
   async loadGame(dateKey, mode) {
-    if (mode === 'practice') {
+    if (isPractice(mode)) {
       const saved = read<Partial<GameState> | null>(gameKey(dateKey, mode), null);
       const fresh = newGame(saved?.dateKey ?? newPracticeKey(), mode);
       return saved ? { ...fresh, ...saved } : fresh;
@@ -210,7 +213,13 @@ export const localApi: GameApi = {
       : guessesMade >= MODES[state.mode].maxGuesses
         ? 'lost'
         : 'playing';
-    return { feedback, status, answer: status === 'playing' ? null : code };
+    // Every ship right, every spot wrong (daily games only): the albatross, the first time it happens.
+    let albatross = false;
+    if (!isPractice(state.mode) && feedback.exact === 0 && feedback.near === guess.length && !read<string | null>(ALBATROSS_KEY, null)) {
+      write(ALBATROSS_KEY, dateKeyFor(new Date()));
+      albatross = true;
+    }
+    return { feedback, status, answer: status === 'playing' ? null : code, albatross };
   },
 
   async askHint(state) {
@@ -226,7 +235,7 @@ export const localApi: GameApi = {
     const results = read<Record<string, DayResult>>(RESULTS_KEY, {});
     const key = `${state.dateKey}:${state.mode}`;
     // Practice never counts.
-    if (state.status === 'playing' || results[key] || state.mode === 'practice') {
+    if (state.status === 'playing' || results[key] || isPractice(state.mode)) {
       return { streak: streakFrom(results, today), newBadges: [] }; // nothing new to record
     }
     results[key] = {
@@ -285,6 +294,7 @@ export const localApi: GameApi = {
       timesEarned,
       newColorsOn: read<Record<string, string>>(YEARS_ON_KEY, {}),
       trophy: read<string | null>(TROPHY_KEY, null),
+      albatross: read<string | null>(ALBATROSS_KEY, null),
       looks: read<Record<string, BoatLook>>(LOOKS_KEY, {}),
       repairs,
       nextRepairIn,
@@ -346,6 +356,7 @@ export function resetToday(today: string) {
   write(YEARS_KEY, years);
   write(YEARS_ON_KEY, yearsOn);
   if (read<string | null>(TROPHY_KEY, null) === today) localStorage.removeItem(TROPHY_KEY);
+  if (read<string | null>(ALBATROSS_KEY, null) === today) localStorage.removeItem(ALBATROSS_KEY);
 }
 // Forget everything this game has saved (only the test games when the test game is on).
 export function resetAll() {

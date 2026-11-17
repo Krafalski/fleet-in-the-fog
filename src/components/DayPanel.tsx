@@ -17,6 +17,7 @@ import { totalGuesses } from '../game/reducer';
 import type { GameState } from '../game/reducer';
 import type { RepairStock } from '../game/repairs';
 import { RepairCard } from './RepairCard';
+import { BookShape, ButtonIcon, LighthouseShape } from './TopBar';
 import { SHARE_MARKS, shareText } from '../game/share';
 
 type Props = {
@@ -210,14 +211,17 @@ export function DayPanel({ state, outcome, today, onMode, onOpenLog, onOpenFleet
         {SHARE_MARKS.exact} right spot · {SHARE_MARKS.near} wrong spot · {SHARE_MARKS.miss} no match
       </p>
 
-      {otherPlayed ? (
-        <button type="button" className="primary-btn" onClick={onOpenLog}>Check the logs</button>
-      ) : (
-        <button type="button" className="primary-btn" onClick={() => onMode(other)}>Play {MODES[other].label}</button>
-      )}
-      <div className="day-panel__links">
-        <button type="button" className="outline-btn" onClick={onOpenFleet}>Your fleet</button>
-        {!otherPlayed && <button type="button" className="outline-btn" onClick={onOpenLog}>Harbor log</button>}
+      {!otherPlayed && <button type="button" className="primary-btn" onClick={() => onMode(other)}>Play {MODES[other].label}</button>}
+
+      <div className="day-panel__more">
+        <h3>Keep playing</h3>
+        <div className="day-panel__links">
+          {/* Practice opens in the size just played; it never counts. */}
+          <button type="button" className="outline-btn" onClick={() => onMode(state.mode === 'hard' ? 'practice-hard' : 'practice-easy')}>Practice</button>
+          <button type="button" className="outline-btn with-icon" onClick={onOpenLog}><ButtonIcon><BookShape /></ButtonIcon>Past games</button>
+        </div>
+        <p>See your boats and sightings</p>
+        <button type="button" className="outline-btn with-icon" onClick={onOpenFleet}><ButtonIcon><LighthouseShape /></ButtonIcon>Your fleet</button>
       </div>
     </section>
   );

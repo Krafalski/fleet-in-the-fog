@@ -5,6 +5,7 @@
 // At the bottom: the rescue dolphin with the player's streak repairs, and the offer to use them if a streak broke.
 import { useEffect, useRef, useState } from 'react';
 import { Trophy } from '../Trophy';
+import { Scenery } from '../Scenery';
 import { TROPHY_DAYS } from '../game/badges';
 import { Boat } from '../Boat';
 import type { BadgeKind, BoatLook } from '../Boat';
@@ -73,6 +74,7 @@ export function Fleet({ today, onClose }: Props) {
   const [repairsUsed, setRepairsUsed] = useState(0); // goes up after a repair, so everything reloads
   const [stats, setStats] = useState<Stats>(NO_STATS);
   const [trophy, setTrophy] = useState<string | null>(null);
+  const [albatross, setAlbatross] = useState<string | null>(null);
   const [streak, setStreak] = useState(0);
   // What the detail card shows: a boat's kind, or a creature's kind.
   const [picked, setPicked] = useState<string>(BADGES[0].kind);
@@ -88,6 +90,7 @@ export function Fleet({ today, onClose }: Props) {
       setNextRepairIn(progress.nextRepairIn);
       setOffer(progress.repairOffer);
       setTrophy(progress.trophy);
+      setAlbatross(progress.albatross);
       setStreak(progress.streak);
     });
     api.loadStats().then((loaded) => {
@@ -315,6 +318,16 @@ export function Fleet({ today, onClose }: Props) {
       )}
 
       <RepairCard repairs={repairs} offer={offer} nextRepairIn={nextRepairIn} wide onUse={useRepair} />
+      {/* An extra little badge: every ship right, every spot wrong. */}
+      {!showAll && (
+        <div className={`trophy-card albatross-card${albatross ? ' is-lit' : ''}`}>
+          <span className={albatross ? undefined : 'is-locked'}><Scenery kind="albatross" size={1.1} /></span>
+          <div>
+            <strong>Albatross</strong>
+            <p>{albatross ? `Every ship right, every spot wrong. Sighted ${formatDate(albatross, false)}.` : 'Sighted when a guess has every ship right, but every one in the wrong spot.'}</p>
+          </div>
+        </div>
+      )}
       {!showAll && !trophy && trophyCard}
     </main>
   );

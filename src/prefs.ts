@@ -3,8 +3,11 @@
 import { STORE } from './api';
 
 const KEY = `${STORE}:prefs`;
-export type Prefs = { carry: boolean }; // carry: start each row with the ships that were in the right spot
-const DEFAULTS: Prefs = { carry: true };
+import type { PracticeMode } from './game/game';
+
+// carry: start each row with the ships that were in the right spot. practice: the size last chosen in Practice.
+export type Prefs = { carry: boolean; practice: PracticeMode };
+const DEFAULTS: Prefs = { carry: true, practice: 'practice-easy' };
 
 export function loadPrefs(): Prefs {
   try {

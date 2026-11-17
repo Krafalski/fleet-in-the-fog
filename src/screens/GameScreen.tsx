@@ -10,17 +10,18 @@ import type { Outcome } from '../api';
 import { AnchorMark, Board, MiniAnchor as MiniAnchorIcon } from '../components/Board';
 import { DayPanel } from '../components/DayPanel';
 import { FogCard } from '../components/FogCard';
+import { Scenery } from '../Scenery';
 import { ShipPicker } from '../components/ShipPicker';
 import { TopBar } from '../components/TopBar';
 import { testGame } from '../config';
 import { formatDate } from '../game/dates';
-import { MODES, MODE_LIST } from '../game/game';
-import type { Mode, Ship } from '../game/game';
+import { MODES, MODE_LIST, isPractice } from '../game/game';
+import type { Mode, Ship, PracticeMode } from '../game/game';
 import { alreadyGuessed, canLogGuess, newGame, reducer, totalGuesses } from '../game/reducer';
 import type { Action } from '../game/reducer';
 
 // Boats shrink a little as rows get longer.
-const BOAT_SIZE: Record<Mode, number> = { easy: 1.05, hard: 0.95, practice: 0.95 };
+const BOAT_SIZE: Record<Mode, number> = { easy: 1.25, hard: 0.95, 'practice-easy': 1.25, 'practice-hard': 0.95 };
 // The moment a game ends: pegs light up, the fog lifts, a banner shows, then the day's results take over.
 const ENDING_MS = 3400;
 // How long "Already played" stays on the Log guess button.
@@ -53,7 +54,13 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
   const lastReplayTap = useRef(0);
   const [askGiveUp, setAskGiveUp] = useState(false);
   const [carry, setCarry] = useState(() => loadPrefs().carry);
-  const practice = mode === 'practice';
+  const [albatross, setAlbatross] = useState(false); // shows the albatross note for a few seconds
+  const practice = isPractice(mode);
+  // Practice sizes: remembered, so the Practice button goes back to the last one used.
+  function openPractice(size: PracticeMode) {
+    savePrefs({ ...loadPrefs(), practice: size });
+    onMode(size);
+  }
 
   // Load the saved game once, then save after every change.
   useEffect(() => {
@@ -85,7 +92,12 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
     }
     const guess = state.current as Ship[];
     const result = await api.submitGuess(state, guess);
-    const action: Action = { type: 'GUESS_SCORED', guess, ...result, carry: carry && state.perSpot };
+    const { albatross: sawAlbatross, ...scored } = result;
+    const action: Action = { type: 'GUESS_SCORED', guess, ...scored, carry: carry && state.perSpot };
+    if (sawAlbatross) {
+      setAlbatross(true);
+      window.setTimeout(() => setAlbatross(false), 4500);
+    }
     dispatch(action);
     if (result.status !== 'playing') {
       setEnding(true);
@@ -113,7 +125,7 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
     setAskGiveUp(false);
     setEnding(false);
     window.clearTimeout(endTimer.current);
-    dispatch({ type: 'LOAD', state: { ...newGame(newPracticeKey(), 'practice'), perSpot: state.perSpot } });
+    dispatch({ type: 'LOAD', state: { ...newGame(newPracticeKey(), mode), perSpot: state.perSpot } });
   }
 
   async function giveUp() {
@@ -188,7 +200,7 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
 
   return (
     <main className={`screen game game--${mode}${testGame ? ' is-test' : ''}${replaying ? ' is-replay' : ''}`}>
-      <TopBar onOpenHelp={onOpenHelp} subtitle={practice ? 'Practice · a new fleet every game' : `Harbor log · ${formatDate(dateKey)}`} onOpenLog={onOpenLog} onOpenFleet={onOpenFleet} />
+      <TopBar onOpenHelp={onOpenHelp} subtitle={practice ? 'Practice waters' : `Harbor log · ${formatDate(dateKey)}`} onOpenLog={onOpenLog} onOpenFleet={onOpenFleet} />
 
       <div className="segmented" role="group" aria-label="Difficulty">
         {MODE_LIST.map((m) => (
@@ -196,7 +208,7 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
             {MODES[m].label} · {MODES[m].slots}
           </button>
         ))}
-        <button type="button" className={practice ? 'is-on' : undefined} aria-pressed={practice} onClick={() => onMode('practice')}>
+        <button type="button" className={practice ? 'is-on' : undefined} aria-pressed={practice} onClick={() => onMode(loadPrefs().practice)}>
           Practice
         </button>
       </div>
@@ -204,12 +216,23 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
       {/* One line saying how this mode's feedback works. */}
       <p className="mode-line">
         {practice
-          ? 'Practice: a new fleet every game, nothing counts.'
+          ? 'Practice: a new fleet every game. It doesn’t count toward badges.'
           : mode === 'easy'
             ? 'Easy: an anchor under each ship tells you about that ship.'
             : 'Hard: anchors at the end of each row are totals, in no order.'}
       </p>
 
+
+      {practice && (
+        <div className="feedback-toggle" role="group" aria-label="Practice size">
+          <span>Size</span>
+          {(['practice-easy', 'practice-hard'] as const).map((size) => (
+            <button key={size} type="button" className={size === mode ? 'is-on' : undefined} aria-pressed={size === mode} onClick={() => openPractice(size)}>
+              {size === 'practice-easy' ? 'Easy' : 'Hard'} · {MODES[size].slots}
+            </button>
+          ))}
+        </div>
+      )}
 
       {practice && (
         <div className="feedback-toggle" role="group" aria-label="Feedback">
@@ -220,6 +243,12 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
       )}
 
       <FogCard state={state} boatSize={BOAT_SIZE[mode]} />
+      {albatross && (
+        <div className="albatross-note" role="status">
+          <Scenery kind="albatross" size={0.9} />
+          <p><strong>An albatross!</strong> Every ship right, every spot wrong. It's in your fleet now.</p>
+        </div>
+      )}
 
       {practice ? (
         <>

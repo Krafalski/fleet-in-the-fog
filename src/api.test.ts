@@ -182,3 +182,29 @@ describe('Reset today (dev bar)', () => {
     expect(back.timesEarned.galleon).toBe(3);
   });
 });
+
+describe('the albatross', () => {
+  test('every ship right, every spot wrong: sighted once, in daily games only', async () => {
+    const { puzzleForDate, score } = await import('./game/game');
+    // Find a day whose fleet can be shuffled so every ship is in the wrong spot.
+    let day = TODAY, shuffled: number[] = [];
+    for (let i = 0; i < 400; i++) {
+      day = addDays(TODAY, i);
+      const { code } = puzzleForDate(day, 'easy');
+      const r = [code[1], code[2], code[3], code[0]];
+      const f = score(r, code);
+      if (f.exact === 0 && f.near === 4) { shuffled = r; break; }
+    }
+    expect(shuffled.length).toBe(4);
+    const first = await api.submitGuess(newGame(day, 'easy'), shuffled);
+    expect(first.albatross).toBe(true);
+    const again = await api.submitGuess(newGame(day, 'easy'), shuffled);
+    expect(again.albatross).toBe(false);
+  });
+  test('practice never sights it', async () => {
+    const game = newGame('practice-7', 'practice-easy');
+    const { code } = (await import('./game/game')).puzzleForDate('practice-7', 'practice-easy');
+    const out = await api.submitGuess(game, [code[1], code[2], code[3], code[0]]);
+    expect(out.albatross).toBe(false);
+  });
+});

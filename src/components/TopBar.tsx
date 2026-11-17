@@ -9,9 +9,7 @@ export function TopBar({ subtitle, onOpenLog, onOpenFleet, onOpenHelp }: Props) 
     <header className="topbar">
       <div className="topbar__side">
         <IconButton label="Harbor log: past puzzles" onClick={onOpenLog} motion="bob">
-          <path d="M5 18 V5 A2 2 0 0 1 7 3 H19 V17 H7 A2 2 0 0 0 5 19 A2 2 0 0 0 7 21 H19 V17" />
-          <line x1="9" y1="7.5" x2="15" y2="7.5" />
-          <line x1="9" y1="10.5" x2="13" y2="10.5" />
+          <BookShape />
         </IconButton>
       </div>
       <div className="topbar__title">
@@ -30,11 +28,7 @@ export function TopBar({ subtitle, onOpenLog, onOpenFleet, onOpenHelp }: Props) 
           </IconButton>
         )}
         <IconButton label="Lighthouse: your fleet" onClick={onOpenFleet} motion="beacon">
-          <path d="M8.5 6 L12 3 L15.5 6" />
-          <rect x="9.5" y="6" width="5" height="3.5" />
-          <path d="M9.8 9.5 L8.8 20 H15.2 L14.2 9.5" />
-          <line x1="9.3" y1="14.5" x2="14.7" y2="14.5" />
-          <line x1="6" y1="20.5" x2="18" y2="20.5" />
+          <LighthouseShape />
         </IconButton>
       </div>
     </header>
@@ -42,6 +36,36 @@ export function TopBar({ subtitle, onOpenLog, onOpenFleet, onOpenHelp }: Props) 
 }
 
 // motion: a small idle animation that says "you can tap me". bob = floats on a wave; beacon = a lighthouse glow.
+// The top-bar drawings, shared so other buttons (like the win panel's) can show the same icon.
+export function BookShape() {
+  return (
+    <>
+      <path d="M5 18 V5 A2 2 0 0 1 7 3 H19 V17 H7 A2 2 0 0 0 5 19 A2 2 0 0 0 7 21 H19 V17" />
+      <line x1="9" y1="7.5" x2="15" y2="7.5" />
+      <line x1="9" y1="10.5" x2="13" y2="10.5" />
+    </>
+  );
+}
+export function LighthouseShape() {
+  return (
+    <>
+      <path d="M8.5 6 L12 3 L15.5 6" />
+      <rect x="9.5" y="6" width="5" height="3.5" />
+      <path d="M9.8 9.5 L8.8 20 H15.2 L14.2 9.5" />
+      <line x1="9.3" y1="14.5" x2="14.7" y2="14.5" />
+      <line x1="6" y1="20.5" x2="18" y2="20.5" />
+    </>
+  );
+}
+// A small icon to sit inside a text button.
+export function ButtonIcon({ children }: { children: ReactNode }) {
+  return (
+    <svg className="btn-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {children}
+    </svg>
+  );
+}
+
 export function IconButton({ label, onClick, children, motion }: { label: string; onClick: () => void; children: ReactNode; motion?: 'bob' | 'beacon' }) {
   return (
     <button type="button" className={`icon-btn${motion ? ` icon-btn--${motion}` : ''}`} onClick={onClick} aria-label={label}>

@@ -137,7 +137,7 @@ describe('ships in play', () => {
     for (let i = 0; i < 50; i++) expect(randomCode(4, rand, 5).every((s) => s < 5)).toBe(true);
   });
   test('practice puzzles differ from game to game', () => {
-    const a = puzzleForDate('practice-1', 'practice').code.join(), b = puzzleForDate('practice-2', 'practice').code.join();
+    const a = puzzleForDate('practice-1', 'practice-hard').code.join(), b = puzzleForDate('practice-2', 'practice-hard').code.join();
     expect(a === b).toBe(false);
   });
 });

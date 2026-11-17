@@ -5,7 +5,7 @@ import { api } from './api';
 import { IntroModal } from './components/IntroModal';
 import { DevBar } from './components/DevBar';
 import { devTools } from './config';
-import { dateKeyFor } from './game/game';
+import { dateKeyFor, isPractice } from './game/game';
 import type { Mode } from './game/game';
 import { Fleet } from './screens/Fleet';
 import { GameScreen } from './screens/GameScreen';
@@ -58,7 +58,7 @@ export function App() {
   if (view === 'fleet') return <Fleet today={today} onClose={() => setView('game')} />;
   return (
     <GameScreen
-      key={mode === 'practice' ? 'practice' : `${dateKey}:${mode}`}
+      key={isPractice(mode) ? mode : `${dateKey}:${mode}`}
       dateKey={dateKey}
       today={today}
       mode={mode}

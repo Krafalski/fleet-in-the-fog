@@ -11,7 +11,10 @@ export const SHIP_COUNT = 6;
 
 // The two daily puzzles. Practice is a third mode that is never recorded.
 export type DailyMode = 'easy' | 'hard';
-export type Mode = DailyMode | 'practice';
+// Practice comes in both sizes; it's never recorded.
+export type PracticeMode = 'practice-easy' | 'practice-hard';
+export type Mode = DailyMode | PracticeMode;
+export const isPractice = (mode: Mode): mode is PracticeMode => mode.startsWith('practice');
 export const MODE_LIST: DailyMode[] = ['easy', 'hard'];
 
 // slots = spots in a row. ships = how many kinds of ship are in play (all six in every mode for now).
@@ -20,7 +23,9 @@ export const MODE_LIST: DailyMode[] = ['easy', 'hard'];
 export const MODES: Record<Mode, { slots: number; ships: number; maxGuesses: number; perSpot: boolean; label: string }> = {
   easy: { slots: 4, ships: 6, maxGuesses: 8, perSpot: true, label: 'Easy' },
   hard: { slots: 5, ships: 6, maxGuesses: 10, perSpot: false, label: 'Hard' },
-  practice: { slots: 5, ships: 6, maxGuesses: 10, perSpot: true, label: 'Practice' },
+  // Practice starts with marks under each ship (training wheels); its toggle can switch to totals.
+  'practice-easy': { slots: 4, ships: 6, maxGuesses: 8, perSpot: true, label: 'Practice' },
+  'practice-hard': { slots: 5, ships: 6, maxGuesses: 10, perSpot: true, label: 'Practice' },
 };
 
 // In test games every spot holds this ship (1 = junk). See config.ts.
@@ -110,7 +115,7 @@ export type Puzzle = {
 export function puzzleForDate(dateKey: string, mode: Mode): Puzzle {
   const { slots, ships } = MODES[mode];
   // Practice games pass a made-up key (like 'practice-1763391234567') instead of a date, so each one is new.
-  if (testGame && mode !== 'practice') return { code: new Array<Ship>(slots).fill(TEST_SHIP), ruledOut: [] };
+  if (testGame && !isPractice(mode)) return { code: new Array<Ship>(slots).fill(TEST_SHIP), ruledOut: [] };
   return { code: randomCode(slots, seededRandom(hashString(`fleet-in-the-fog:${dateKey}:${mode}`)), ships), ruledOut: [] };
 }
 
