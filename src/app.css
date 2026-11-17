@@ -368,25 +368,25 @@ h1, h2, p { margin: 0; }
 
 /* ---------- top bar icons: a gentle hint that they can be tapped ---------- */
 /* Book and bottle float, every few seconds; the bottle a beat after the book. */
-.icon-btn--bob svg { animation: iconBob 4.5s ease-in-out infinite; transform-origin: 50% 80%; }
-.topbar__side--right .icon-btn--bob svg { animation-delay: 1.2s; }
+.icon-btn--bob svg { animation: iconBob 9s ease-in-out infinite; transform-origin: 50% 80%; }
+.topbar__side--right .icon-btn--bob svg { animation-delay: 2.4s; }
 @keyframes iconBob {
-  0%, 60%, 100% { transform: translateY(0) rotate(0); }
-  70% { transform: translateY(-2.5px) rotate(-4deg); }
-  80% { transform: translateY(0) rotate(0); }
-  90% { transform: translateY(-1px) rotate(2deg); }
+  0%, 80%, 100% { transform: translateY(0) rotate(0); }
+  85% { transform: translateY(-2.5px) rotate(-4deg); }
+  90% { transform: translateY(0) rotate(0); }
+  95% { transform: translateY(-1px) rotate(2deg); }
 }
 /* The lighthouse: a warm glow swells around the lamp and fades, like a turn of the light. */
 .icon-btn--beacon { position: relative; }
 .icon-btn--beacon::before {
   content: ''; position: absolute; left: 50%; top: 2px; width: 30px; height: 30px; margin-left: -15px; border-radius: 50%;
   background: radial-gradient(circle, var(--lantern) 0%, var(--lantern-glow) 35%, transparent 70%);
-  opacity: 0; pointer-events: none; animation: beacon 5s ease-in-out infinite 2s;
+  opacity: 0; pointer-events: none; animation: beacon 10s ease-in-out infinite 4s;
 }
 .icon-btn--beacon svg { position: relative; }
 @keyframes beacon {
-  0%, 70%, 100% { opacity: 0; transform: scale(0.6); }
-  80% { opacity: 0.85; transform: scale(1); }
+  0%, 85%, 100% { opacity: 0; transform: scale(0.6); }
+  90% { opacity: 0.85; transform: scale(1); }
 }
 .icon-btn:hover, .icon-btn:focus-visible { background: var(--panel); }
 /* People who ask their device for less motion get still icons. */

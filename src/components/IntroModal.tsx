@@ -61,8 +61,15 @@ export function IntroModal({ today, onPlay, startOn = 'front' }: { today: string
               <li>Each row is another try at the same fleet.</li>
               <li>Solve it in {MODES.easy.maxGuesses} guesses ({MODES.hard.maxGuesses} on Hard). A new fleet comes in every day.</li>
             </ol>
-            <button type="button" className="primary-btn intro__play" onClick={play}>Play</button>
-            <button type="button" className="link-btn" onClick={() => setPage('front')}>Back</button>
+            {startOn === 'rules' ? (
+              // Opened from the bottle during a game: one button, straight back to the game.
+              <button type="button" className="primary-btn intro__play" onClick={play} autoFocus>Back to the game</button>
+            ) : (
+              <>
+                <button type="button" className="primary-btn intro__play" onClick={play}>Play</button>
+                <button type="button" className="link-btn" onClick={() => setPage('front')}>Back</button>
+              </>
+            )}
           </>
         )}
       </div>
