@@ -19,6 +19,7 @@ import { addDays } from './game/dates';
 import { newGame } from './game/reducer';
 import type { GameState } from './game/reducer';
 import type { DailyMode } from './game/game';
+import { answerLine, parseDays, seedDays } from './devUrl';
 
 const TODAY = '2027-06-15';
 const KEY = 'fog'; // the real-game store (no window in Node, so the test game is never on)
@@ -184,7 +185,7 @@ describe('Reset today (dev bar)', () => {
 });
 
 describe('the albatross', () => {
-  test('every ship right, every spot wrong: sighted once, in daily games only', async () => {
+  test('every ship right, every spot wrong: sighted every time, and counted', async () => {
     const { puzzleForDate, score } = await import('./game/game');
     // Find a day whose fleet can be shuffled so every ship is in the wrong spot.
     let day = TODAY, shuffled: number[] = [];
@@ -197,14 +198,139 @@ describe('the albatross', () => {
     }
     expect(shuffled.length).toBe(4);
     const first = await api.submitGuess(newGame(day, 'easy'), shuffled);
-    expect(first.albatross).toBe(true);
+    expect(first.albatross).toBe(1);
     const again = await api.submitGuess(newGame(day, 'easy'), shuffled);
-    expect(again.albatross).toBe(false);
+    expect(again.albatross).toBe(2);
+    expect((await api.loadProgress(TODAY)).albatrossCount).toBe(2);
   });
   test('practice never sights it', async () => {
     const game = newGame('practice-7', 'practice-easy');
     const { code } = (await import('./game/game')).puzzleForDate('practice-7', 'practice-easy');
     const out = await api.submitGuess(game, [code[1], code[2], code[3], code[0]]);
-    expect(out.albatross).toBe(false);
+    expect(out.albatross).toBe(undefined);
+  });
+});
+
+describe('score', () => {
+  test('hints add to the score, and creatures are sighted by score', async () => {
+    // Won in 3 guesses with 2 hints: score 5, so it counts as an octopus (5), not a manta ray (3).
+    await api.recordResult({ ...finished('won'), hintsUsed: 2 }, TODAY);
+    const stats = await api.loadStats();
+    expect(stats.you.easy.average).toBe(3);
+    expect(stats.you.easy.hints).toBe(2);
+    expect(stats.you.easy.score).toBe(5);
+    expect(stats.sightings.easy[5]).toBe(1);
+    expect(stats.sightings.easy[3]).toBe(undefined);
+  });
+});
+
+describe('address add-ons (?seed=)', () => {
+  test('skip=1,23 reads as days 1 and 23; junk is ignored', () => {
+    expect(parseDays('1,23')).toEqual([1, 23]);
+    expect(parseDays('2, x, 0, 5')).toEqual([2, 5]);
+    expect(parseDays(null)).toEqual([]);
+  });
+  test('?seed=29 then a win today is a 30-day streak: the houseboat', async () => {
+    seedDays(KEY, TODAY, 29, [], 'easy');
+    const out = await winToday();
+    expect(out.streak).toBe(30);
+    expect(out.newBadges.includes('houseboat')).toBe(true);
+  });
+  test('?seed=5&skip=1,2 leaves a two-day gap', async () => {
+    expect(seedDays(KEY, TODAY, 5, [1, 2], 'easy')).toBe(3);
+    const out = await winToday();
+    expect(out.streak).toBe(1);
+  });
+  test('seeded wins never pass the mode\'s guess limit', () => {
+    seedDays(KEY, TODAY, 200, [], 'easy');
+    const results = Object.values(saved<Record<string, DayResult>>('results', {}));
+    expect(results.every((r) => r.guesses >= 1 && r.guesses <= 6)).toBe(true);
+  });
+});
+
+describe('restarting one mode today', () => {
+  test('restart-today=easy forgets Easy, keeps Hard and the boat it earned', async () => {
+    await winToday('easy');
+    await winToday('hard');
+    resetToday(TODAY, ['easy']);
+    const day = await api.loadDay(TODAY);
+    expect(day.easy).toBe(undefined);
+    expect(day.hard?.status).toBe('won');
+    expect((await api.loadProgress(TODAY)).badges.paper).toBe(TODAY);
+  });
+});
+
+describe('the answer line in the console', () => {
+  test('names the day and both fleets in color words', () => {
+    const line = answerLine('2026-11-18');
+    expect(line.startsWith('Wednesday, November 18. Easy: ')).toBe(true);
+    expect(line.includes(' || Hard: ')).toBe(true);
+  });
+});
+
+describe('spyglass', () => {
+  // A Hard game today with one guess that has the first ship in the right spot.
+  async function hardWithRightSpot(mode: 'hard' | 'practice-hard' = 'hard'): Promise<GameState> {
+    const { puzzleForDate } = await import('./game/game');
+    const key = mode === 'hard' ? TODAY : 'practice-9';
+    const { code } = puzzleForDate(key, mode);
+    const other = (code[0] + 1) % 6;
+    const guess = [code[0], other, other, other, other];
+    const game = { ...newGame(key, mode), perSpot: false };
+    const fb = await api.submitGuess(game, guess);
+    return { ...game, guesses: [guess], feedback: [fb.feedback] };
+  }
+
+  test('2 golden spyglasses come with every new boat', async () => {
+    await winToday(); // paper boat
+    expect((await api.loadProgress(TODAY)).goldenSpyglasses).toBe(2);
+  });
+  test('golden ones cost 0; once they run out each one costs 2', async () => {
+    await winToday('easy'); // paper boat: 2 golden
+    const game = await hardWithRightSpot();
+    const first = await api.useSpyglass(game, TODAY);
+    expect(first?.cost).toBe(0);
+    expect(first?.golden).toBe(true);
+    await api.useSpyglass(game, TODAY);
+    const third = await api.useSpyglass(game, TODAY);
+    expect(third?.cost).toBe(2);
+    expect(third?.golden).toBe(false);
+    expect((await api.loadProgress(TODAY)).goldenSpyglasses).toBe(0);
+  });
+  test('it shows a ship that really is in the right spot', async () => {
+    const { puzzleForDate } = await import('./game/game');
+    const used = await api.useSpyglass(await hardWithRightSpot(), TODAY);
+    expect(used?.spot).toBe(0);
+    expect(used?.ship).toBe(puzzleForDate(TODAY, 'hard').code[0]);
+  });
+  test('needs a right-spot ship first, and never works in Easy', async () => {
+    const empty = { ...newGame(TODAY, 'hard'), perSpot: false };
+    expect((await api.checkSpyglass(empty)).available).toBe(false);
+    expect((await api.checkSpyglass(newGame(TODAY, 'easy'))).allowed).toBe(false);
+  });
+  test('Practice never spends golden ones; it always costs 2', async () => {
+    await winToday(); // 2 golden
+    const used = await api.useSpyglass(await hardWithRightSpot('practice-hard'), TODAY);
+    expect(used?.cost).toBe(2);
+    expect((await api.loadProgress(TODAY)).goldenSpyglasses).toBe(2);
+  });
+  test("its points raise the score, but it never costs a guess", async () => {
+    // 6 guesses + 1 regular spyglass (2) = score 8, and the game is still on with guesses left.
+    const { puzzleForDate } = await import('./game/game');
+    const code = puzzleForDate(TODAY, 'hard').code;
+    const wrong = code.map((c) => (c + 1) % 6);
+    const busy = { ...newGame(TODAY, 'hard'), perSpot: false, guesses: new Array(6).fill(wrong), spyglasses: 3, spyglassPoints: 6 };
+    expect((await api.submitGuess(busy, wrong)).status).toBe('playing'); // guess 7 of 10: still playing
+    const s = { ...finished('won', 'hard'), guesses: new Array(6).fill([0, 0, 0, 0, 0]), spyglasses: 1, spyglassPoints: 2 };
+    await api.recordResult(s, TODAY);
+    const stats = await api.loadStats();
+    expect(stats.you.hard.score).toBe(8);
+    expect(stats.sightings.hard[8]).toBe(1);
+  });
+  test('Reset today gives back golden spyglasses used today', async () => {
+    await winToday('easy');
+    await api.useSpyglass(await hardWithRightSpot(), TODAY);
+    resetToday(TODAY, ['hard']);
+    expect((await api.loadProgress(TODAY)).goldenSpyglasses).toBe(2);
   });
 });

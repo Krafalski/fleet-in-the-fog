@@ -3,7 +3,7 @@
 //   🚢 right ship, right spot    ⚓️ right ship, wrong spot    🌊 no match
 // Easy (and Practice "under each ship") shows a mark for each spot, in order.
 // Hard shows totals for each row, anchors first, so the order gives nothing away.
-import { MODES } from './game';
+import { MODES, gameScore } from './game';
 import type { Feedback, Mode } from './game';
 import { formatDate } from './dates';
 
@@ -21,17 +21,25 @@ type ShareInput = {
   mode: Mode;
   won: boolean;
   guesses: number;           // guesses that count (the first game of the day)
+  hints: number;             // hints used in that game; each one adds 1 to the score
+  spyglasses?: number;       // spyglasses used
+  spyPoints?: number;        // what they added to the score (golden ones add 0)
   creature: string | null;   // the creature sighted, when solved
   streak: number | null;
   rows: Feedback[] | null;   // the counted game's rows; null when the board on screen is a replay
   perSpot: boolean;
 };
 
-export function shareText({ dateKey, mode, won, guesses, creature, streak, rows, perSpot }: ShareInput): string {
+export function shareText({ dateKey, mode, won, guesses, hints, spyglasses = 0, spyPoints = 0, creature, streak, rows, perSpot }: ShareInput): string {
   const { slots, maxGuesses, label } = MODES[mode];
+  const extras = [
+    hints ? `${hints} ${hints === 1 ? 'hint' : 'hints'}` : '',
+    spyglasses ? `${spyglasses} ${spyglasses === 1 ? 'spyglass' : 'spyglasses'}` : '',
+  ].filter(Boolean);
   const lines = [`Fleet in the Fog · ${formatDate(dateKey, false)} · ${label}`];
   lines.push(won
-    ? `Solved in ${guesses}/${maxGuesses}${creature ? ` · ${creature} sighted` : ''}`
+    // With extras: "Solved in 4/6 + 1 hint + 1 spyglass · Score 7". Without, the score is just the guesses.
+    ? `Solved in ${guesses}/${maxGuesses}${extras.length ? ` + ${extras.join(' + ')} · Score ${gameScore(guesses, hints, spyPoints)}` : ''}${creature ? ` · ${creature} sighted` : ''}`
     : `The fleet slipped away (${guesses}/${maxGuesses})`);
   if (rows) lines.push(...rows.map((f) => shareRow(f, slots, perSpot)));
   if (streak) lines.push(`Streak: ${streak} ${streak === 1 ? 'day' : 'days'}`);

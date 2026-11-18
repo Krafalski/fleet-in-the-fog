@@ -11,7 +11,7 @@ import { MOST_GUESSES_TRACKED, api } from '../api';
 import type { DayResult, DayStats, Outcome, RepairOffer } from '../api';
 import { BADGES, MILESTONES } from '../game/badges';
 import type { Milestone } from '../game/badges';
-import { MODES } from '../game/game';
+import { MODES, gameScore } from '../game/game';
 import type { DailyMode, Mode } from '../game/game';
 import { totalGuesses } from '../game/reducer';
 import type { GameState } from '../game/reducer';
@@ -27,9 +27,11 @@ type Props = {
   onMode: (mode: Mode) => void;
   onOpenLog: () => void;
   onOpenFleet: () => void;
+  onReveal: () => void;      // after a loss: lift the fog and show the fleet
+  onKeepTrying: () => void;  // after a loss: play the same fleet again (a Replay; it doesn't count)
 };
 
-export function DayPanel({ state, outcome, today, onMode, onOpenLog, onOpenFleet }: Props) {
+export function DayPanel({ state, outcome, today, onMode, onOpenLog, onOpenFleet, onReveal, onKeepTrying }: Props) {
   const [day, setDay] = useState<Record<DailyMode, DayResult | undefined> | null>(null);
   const [streak, setStreak] = useState<number | null>(null);
   const [badges, setBadges] = useState<Record<string, string>>({}); // badge kind -> day earned
@@ -63,15 +65,18 @@ export function DayPanel({ state, outcome, today, onMode, onOpenLog, onOpenFleet
   const counted = day?.[state.mode as DailyMode];
   const won = counted ? counted.status === 'won' : state.status === 'won';
   const guesses = counted ? counted.guesses : totalGuesses(state);
-  const hints = counted ? counted.hints : state.hintsUsed;
+  const hints = counted ? counted.hints ?? 0 : state.hintsUsed;
+  const spyglasses = counted ? counted.spyglasses ?? 0 : state.spyglasses ?? 0;
+  const spyPoints = counted ? counted.spyglassPoints ?? 0 : state.spyglassPoints ?? 0;
+  const points = gameScore(guesses, hints, spyPoints); // the score: guesses + hints + what spyglasses added
   // The board on screen can be a Replay, which may end differently from the game that counts.
   const playedAgain = state.rounds > 1 || (counted !== undefined && state.rounds > (counted.rounds ?? 1));
 
   const other: DailyMode = state.mode === 'easy' ? 'hard' : 'easy';
   const otherPlayed = day !== null && day[other] !== undefined;
 
-  // Spot 1: the creature for this many guesses. The seal covers 8 and up. Greyed out on a loss.
-  const creature = CREATURE_LADDER.find((c) => c.guesses === Math.min(guesses, MOST_GUESSES_TRACKED)) ?? CREATURE_LADDER[0];
+  // Spot 1: the creature for this score (guesses + hints). The seal covers 8 and up. Greyed out on a loss.
+  const creature = CREATURE_LADDER.find((c) => c.score === Math.min(points, MOST_GUESSES_TRACKED)) ?? CREATURE_LADDER[0];
 
   // Spot 2: a boat earned with this game, if there was one. BADGES is in earning order, so the last match is the biggest.
   // Otherwise it shows the last streak boat the player earned, greyed out, with how far away the next one is.
@@ -97,7 +102,7 @@ export function DayPanel({ state, outcome, today, onMode, onOpenLog, onOpenFleet
   const [copied, setCopied] = useState(false);
   async function copyResult() {
     const text = shareText({
-      dateKey: state.dateKey, mode: state.mode, won, guesses,
+      dateKey: state.dateKey, mode: state.mode, won, guesses, hints, spyglasses, spyPoints,
       creature: won ? CREATURE_NAMES[creature.kind] : null,
       streak,
       rows: state.rounds > 1 ? null : state.feedback, // a replay's board isn't the game that counts
@@ -122,15 +127,30 @@ export function DayPanel({ state, outcome, today, onMode, onOpenLog, onOpenFleet
 
   return (
     <section className="day-panel" aria-live="polite">
-      <h2>{won ? 'Fleet found' : 'The fleet slipped away'}</h2>
-      {playedAgain && <p className="day-panel__replay">Replay: {state.status === 'won' ? 'solved' : 'slipped away'}</p>}
+      {/* After a Replay the board on screen and the game that counts can end differently: say both, plainly. */}
+      {playedAgain ? (
+        <>
+          <h2>{state.status === 'won' ? 'Replay solved' : 'Replay slipped away'}</h2>
+          <p className="day-panel__replay">
+            Only your first game counts. It was {won ? `solved, score ${points}` : 'a miss'}, and the numbers below are from it.
+          </p>
+        </>
+      ) : (
+        <h2>{won ? 'Fleet found' : 'The fleet slipped away'}</h2>
+      )}
 
       <div className="stats">
+        <div className="stats__score"><strong>{won ? points : '–'}</strong><span>Score</span></div>
         <div><strong>{guesses}</strong><span>{guesses === 1 ? 'Guess' : 'Guesses'}</span></div>
         <div><strong>{hints}</strong><span>{hints === 1 ? 'Hint' : 'Hints'}</span></div>
         <div><strong>{streak ?? '–'}</strong><span>Day streak</span></div>
-        <div><strong>{everyone ? everyone.average.toFixed(1) : '–'}</strong><span>Harbor average</span></div>
+        <div><strong>{everyone ? everyone.average.toFixed(1) : '–'}</strong><span>Harbor score</span></div>
       </div>
+      <p className="stats__note">
+        {spyglasses
+          ? `Score = guesses + hints + ${spyPoints} for ${spyglasses === 1 ? 'the spyglass' : `${spyglasses} spyglasses`}. Lower is better.`
+          : 'Score = guesses + hints. Lower is better.'}
+      </p>
 
 
       <div className="earned">
@@ -138,7 +158,7 @@ export function DayPanel({ state, outcome, today, onMode, onOpenLog, onOpenFleet
           <Creature kind={creature.kind} look={won ? 'color' : 'locked'} size={1.4} />
           <div>
             <strong>{won ? CREATURE_NAMES[creature.kind] : 'No sighting'}</strong>
-            <p>{won ? `Sighted: solved in ${guesses}` : 'Creatures show up when you solve it'}</p>
+            <p>{won ? `Sighted: score ${points}${points > MOST_GUESSES_TRACKED ? ` (${MOST_GUESSES_TRACKED} or more)` : ''}` : 'Creatures show up when you solve it'}</p>
           </div>
         </div>
         {offer ? (
@@ -200,6 +220,17 @@ export function DayPanel({ state, outcome, today, onMode, onOpenLog, onOpenFleet
           <div>
             <strong>Fleet Admiral</strong>
             <p>You are the fleet. Every boat, three years at sea, and one more day.</p>
+          </div>
+        </div>
+      )}
+
+      {/* A loss keeps the fleet in the fog: look now, or try again (a Replay doesn't count). */}
+      {state.status === 'lost' && !state.revealed && (
+        <div className="lost-choice">
+          <p>The fleet is still hidden. Want another go first?</p>
+          <div className="lost-choice__buttons">
+            <button type="button" className="primary-btn primary-btn--small" onClick={onKeepTrying}>Keep trying</button>
+            <button type="button" className="outline-btn" onClick={onReveal}>Reveal the fleet</button>
           </div>
         </div>
       )}

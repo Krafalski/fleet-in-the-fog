@@ -1,4 +1,5 @@
 // console-streak-testing.js
+// Easier way: address add-ons like ?test&fresh&seed=29. See TESTING.md.
 // Snippets to paste into the browser console (right-click > Inspect > Console) while the game
 // runs on localhost. They fake PAST days, then you play TODAY for real to see what happens.
 // Not part of the game: nothing imports this file, and it never ships.
@@ -38,23 +39,28 @@ window.resetStreak = () => {
 
 // Peek at what's saved.
 window.showSaved = () => {
-  for (const name of ['results', 'badges', 'repairs', 'looks']) {
+  for (const name of ['results', 'badges', 'years', 'yearsOn', 'trophy', 'repairs', 'looks']) {
     console.log(name, JSON.parse(localStorage.getItem(`${window.STORE}:${name}`) || 'null'));
   }
 };
 
 // ----- 2. scenarios (run one, reload, win today) -----
-// resetStreak(); seed(2)                         -> 3-day streak, Paper boat
-// resetStreak(); seed(4)                         -> 5-day streak, Rowboat
+// resetStreak()                                 -> first win today: Paper boat
+// resetStreak(); seed(2)                         -> 3-day streak, Rowboat
 // resetStreak(); seed(6)                         -> 7-day streak, Canoe
 // resetStreak(); seed(29)                        -> 30-day streak, Houseboat (plus every smaller boat)
 // resetStreak(); seed(59)                        -> 60-day streak, Ferry
-// resetStreak(); seed(359)                       -> 360-day streak, Golden galleon
+// resetStreak(); seed(359)                       -> 360-day streak, Golden galleon (all 17 streak boats)
+// resetStreak(); seed(360)                       -> year-2 colors for the Paper boat (1 + 360 days)
+// resetStreak(); seed(700)                       -> year-2 colors for every boat up to the Ocean liner (330 + 360 = 690)
+// resetStreak(); seed(900)                       -> year 3 for boats up to the Longship (180 + 720 = 900), year 2 for the rest
+// resetStreak(); seed(1080)                      -> the Fleet Admiral cup (1081 days: every boat's third year, plus one day)
+// (Colors unlock on today's win. In the fleet, double tap a boat to cycle through its unlocked colors.)
 // resetStreak(); seed(5, [1, 2])                 -> missed 2 days: repair offer (test game gives 2 one-day + 2 three-day)
-// resetStreak(); seed(15, [1,2,3,4,5,6,7,8,9,10]) -> gap too big to repair: streak starts over, greyed Paper boat
+// resetStreak(); seed(15, [1,2,3,4,5,6,7,8,9,10]) -> gap too big to repair: streak starts over at 1, greyed last boat, days to the next
 // resetStreak(); seed(30)                        -> 30 days played earns your first repair (real game)
 // Ghost ship: lose a game (use up every guess without solving it).
 //
 // Notes
 // - Only days solved on their own day count; opening an old day from the Harbor log won't add to the streak.
-// - If today is already finished, seeding won't replay it: use "Rez
+// - If today is already finished, seeding won't replay it: use "Reset today" in the Dev bar.

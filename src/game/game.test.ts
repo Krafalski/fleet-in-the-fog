@@ -155,3 +155,16 @@ describe('no repeat limit', () => {
     expect(allSame).toBe(true);
   });
 });
+
+describe('spyglassSpot', () => {
+  test('finds a right-spot ship from the newest guess, leftmost first, skipping locked spots', async () => {
+    const { spyglassSpot } = await import('./game');
+    const code = [1, 2, 3, 4, 5];
+    const guesses = [[1, 0, 0, 0, 0], [0, 2, 0, 4, 0]];
+    expect(spyglassSpot(code, guesses, [null, null, null, null, null])).toEqual({ spot: 1, ship: 2 });
+    expect(spyglassSpot(code, guesses, [null, 2, null, null, null])).toEqual({ spot: 3, ship: 4 });
+    expect(spyglassSpot(code, guesses, [null, 2, null, 4, null])).toEqual({ spot: 0, ship: 1 });
+    expect(spyglassSpot(code, guesses, [1, 2, null, 4, null])).toBe(null);
+    expect(spyglassSpot(code, [], [null, null, null, null, null])).toBe(null);
+  });
+});

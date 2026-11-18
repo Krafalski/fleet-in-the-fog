@@ -49,6 +49,7 @@ export function Board({ state, boatSize, onTapSlot, lastRow }: Props) {
                 label={`Row ${r + 1}, spot ${i + 1}`}
                 next={i === nextSpot}
                 onTap={isCurrent ? () => onTapSlot(i) : undefined}
+                locked={isCurrent && state.locked?.[i] != null}
               />
             ))}
             <Water slots={slots} layer="front" />

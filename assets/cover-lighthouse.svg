@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630" role="img" aria-label="Fleet in the Fog: a lighthouse beam finds one ship in the evening fog">
+<defs>
+  <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#F6DDB6"/><stop offset="0.45" stop-color="#F0B98C"/><stop offset="0.8" stop-color="#E3927A"/><stop offset="1" stop-color="#D98272"/>
+  </linearGradient>
+  <linearGradient id="beam" x1="1" y1="0" x2="0" y2="0">
+    <stop offset="0" stop-color="#FFF4CF" stop-opacity="0.95"/><stop offset="0.6" stop-color="#FFF1C8" stop-opacity="0.55"/><stop offset="1" stop-color="#FFF1C8" stop-opacity="0.05"/>
+  </linearGradient>
+  <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+    <stop offset="0" stop-color="#FFF6D6" stop-opacity="0.95"/><stop offset="1" stop-color="#FFF6D6" stop-opacity="0"/>
+  </radialGradient>
+  <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6FA8AC"/><stop offset="1" stop-color="#4A8890"/></linearGradient>
+  <!-- watercolor: wobbly edges and soft bleed -->
+  <filter id="paint" x="-5%" y="-5%" width="110%" height="110%">
+    <feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="3" seed="4" result="n"/>
+    <feDisplacementMap in="SourceGraphic" in2="n" scale="14" xChannelSelector="R" yChannelSelector="G" result="d"/>
+    <feGaussianBlur in="d" stdDeviation="1.6"/>
+  </filter>
+  <filter id="soft" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="10"/></filter>
+  <!-- paper grain over everything -->
+  <filter id="grain"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="9"/><feColorMatrix values="0 0 0 0 0.35  0 0 0 0 0.25  0 0 0 0 0.2  0 0 0 0.09 0"/></filter>
+  <g id="yacht"><line x1="20" y1="3" x2="20" y2="22" stroke="#3E4A47" stroke-width="1.5"/><path d="M21 4 L21 21 L32 21 Z" fill="#DE5B8C"/><path d="M19 8 L19 21 L11 21 Z" fill="#F4B9CD"/><path d="M3 22 H37 L33 28 H7 Z" fill="#3E4A47"/></g>
+  <g id="junk"><path d="M12 4 Q28 1 31 12 L31 22.5 L13.1 22.5 Z"/><path d="M2 21 Q20 23 38 20 L33 28 H8 Z"/></g>
+  <g id="schooner"><path d="M15 5 L15 21 L23 21 Z"/><path d="M26 3 L26 21 L35 21 Z"/><path d="M13 8 L13 21 L6 21 Z"/><path d="M3 22 H37 L33 28 H7 Z"/><rect x="14" y="4" width="1.4" height="18"/><rect x="25" y="2" width="1.4" height="20"/></g>
+  <g id="tug"><rect x="20" y="7" width="4" height="7"/><rect x="13" y="13" width="15" height="9" rx="1.5"/><path d="M4 22 H36 L32 28 H8 Z"/></g>
+</defs>
+
+<!-- sky, washed -->
+<rect width="1200" height="630" fill="url(#sky)"/>
+<g filter="url(#paint)" opacity="0.55">
+  <path d="M-40 120 Q 200 90 420 130 T 900 110 T 1260 140 V 200 H -40 Z" fill="#F8E2BE"/>
+  <path d="M-40 260 Q 260 230 520 268 T 1000 250 T 1260 270 V 330 H -40 Z" fill="#EFA987"/>
+</g>
+
+
+<!-- far fog on the horizon -->
+<g filter="url(#paint)">
+  <path d="M-40 372 Q 90 340 220 362 Q 360 334 500 358 Q 640 336 780 360 Q 900 344 1000 366 V 400 H -40 Z" fill="#F6EBDC" opacity="0.75"/>
+</g>
+
+<!-- ships out in the fog: dim shapes -->
+<g fill="#7C7A82" opacity="0.55">
+  <g transform="translate(150 336) scale(2.4) translate(40 0) scale(-1 1)"><use href="#schooner"/></g>
+  <g transform="translate(760 340) scale(2.2)"><use href="#tug"/></g>
+  <g transform="translate(330 352) scale(1.7)"><use href="#junk"/></g>
+</g>
+
+<!-- sea -->
+<g filter="url(#paint)">
+  <path d="M-40 392 Q 60 380 160 392 T 360 392 T 560 392 T 760 392 T 960 392 T 1160 392 T 1360 392 V 640 H -40 Z" fill="url(#sea)"/>
+  <path d="M-40 470 Q 80 456 200 470 T 440 470 T 680 470 T 920 470 T 1160 470 T 1400 470 V 640 H -40 Z" fill="#4E8E95" opacity="0.8"/>
+  <path d="M-40 550 Q 100 536 240 550 T 520 550 T 800 550 T 1080 550 T 1360 550 V 640 H -40 Z" fill="#3F7C84" opacity="0.85"/>
+</g>
+<g fill="none" stroke="#C4DFDD" stroke-width="3" stroke-linecap="round" opacity="0.6" filter="url(#paint)">
+  <path d="M60 430 q 30 -10 60 0"/><path d="M640 446 q 30 -10 60 0"/><path d="M880 420 q 26 -8 52 0"/><path d="M230 512 q 34 -10 68 0"/><path d="M980 500 q 30 -10 60 0"/><path d="M420 590 q 36 -12 72 0"/>
+</g>
+
+<!-- the beam, sweeping left from the lamp down onto the one ship -->
+<path d="M1030 182 L -40 280 L -40 640 L 1030 196 Z" fill="url(#beam)" filter="url(#soft)" style="mix-blend-mode: screen"/>
+
+<!-- the one ship caught in the light -->
+<ellipse cx="560" cy="408" rx="170" ry="96" fill="url(#glow)"/>
+<g transform="translate(470 330) scale(4.6) translate(40 0) scale(-1 1)"><use href="#yacht"/></g>
+<path d="M480 462 q 40 -12 80 0 q 40 12 80 0" fill="none" stroke="#FBF3E4" stroke-width="3" stroke-linecap="round" opacity="0.8"/>
+
+<!-- near fog drifting over the water -->
+<g filter="url(#paint)">
+  <path d="M-40 452 Q 60 428 160 446 Q 240 432 320 452 V 476 H -40 Z" fill="#F6EBDC" opacity="0.6"/>
+  <path d="M760 470 Q 860 446 960 464 Q 1060 450 1240 470 V 494 H 760 Z" fill="#F6EBDC" opacity="0.5"/>
+</g>
+
+<!-- lighthouse on its rocks -->
+<g filter="url(#paint)">
+  <path d="M940 432 Q 980 380 1040 392 Q 1100 372 1150 412 Q 1180 430 1190 446 H 930 Z" fill="#3B4A4C"/>
+</g>
+<g transform="translate(1000 150)">
+  <path d="M-6 260 L 6 70 H 54 L 66 260 Z" fill="#FBF3E4"/>
+  <path d="M1.2 150 H 58.8 L 60 170 H 0 Z" fill="#C8463A"/>
+  <path d="M-2.2 210 H 62.2 L 63.6 232 H -3.6 Z" fill="#C8463A"/>
+  <path d="M4.6 92 H 55.4 L 56.3 108 H 3.7 Z" fill="#C8463A"/>
+  <rect x="0" y="56" width="60" height="14" rx="2" fill="#14303A"/>
+  <rect x="9" y="22" width="42" height="34" fill="#E2A93B"/>
+  <circle cx="30" cy="39" r="12" fill="#FFF6D6"/>
+  <path d="M2 22 L 30 0 L 58 22 Z" fill="#14303A"/>
+  <circle cx="30" cy="39" r="46" fill="url(#glow)"/>
+</g>
+
+<!-- title -->
+<text x="70" y="122" font-family="Fraunces, Georgia, 'DejaVu Serif', serif" font-size="86" fill="#14303A">Fleet in <tspan font-style="italic">the Fog</tspan></text>
+<text x="74" y="176" font-family="Inter, system-ui, 'DejaVu Sans', sans-serif" font-size="28" fill="#2E3E40">A daily ship-spotting puzzle</text>
+
+<rect width="1200" height="630" filter="url(#grain)"/>
+</svg>

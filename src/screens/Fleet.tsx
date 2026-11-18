@@ -19,11 +19,12 @@ import { showAllColorways } from '../config';
 import { BADGES, MYSTERY_BADGE } from '../game/badges';
 import type { Badge } from '../game/badges';
 import { formatDate } from '../game/dates';
-import { MODES, MODE_LIST } from '../game/game';
+import { GOLDEN_PER_BOAT, MODES, MODE_LIST, SPYGLASS_COST } from '../game/game';
+import { Spyglass } from '../Spyglass';
 import type { RepairStock } from '../game/repairs';
 
 const NO_STATS: Stats = {
-  you: { easy: { average: null, solved: 0 }, hard: { average: null, solved: 0 } },
+  you: { easy: { average: null, hints: null, score: null, solved: 0 }, hard: { average: null, hints: null, score: null, solved: 0 } },
   everyone: { easy: null, hard: null },
   sightings: { easy: {}, hard: {} },
 };
@@ -75,9 +76,13 @@ export function Fleet({ today, onClose }: Props) {
   const [stats, setStats] = useState<Stats>(NO_STATS);
   const [trophy, setTrophy] = useState<string | null>(null);
   const [albatross, setAlbatross] = useState<string | null>(null);
+  const [albatrossCount, setAlbatrossCount] = useState(0);
+  const [golden, setGolden] = useState(0);
   const [streak, setStreak] = useState(0);
-  // What the detail card shows: a boat's kind, or a creature's kind.
+  // The boat the detail card shows.
   const [picked, setPicked] = useState<string>(BADGES[0].kind);
+  // The creature whose note shows under the sightings grid; tap it again to close.
+  const [pickedKind, setPickedKind] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -91,6 +96,8 @@ export function Fleet({ today, onClose }: Props) {
       setOffer(progress.repairOffer);
       setTrophy(progress.trophy);
       setAlbatross(progress.albatross);
+      setAlbatrossCount(progress.albatrossCount);
+      setGolden(progress.goldenSpyglasses);
       setStreak(progress.streak);
     });
     api.loadStats().then((loaded) => {
@@ -141,18 +148,18 @@ export function Fleet({ today, onClose }: Props) {
     };
   };
 
-  // One creature per number of guesses. The seal also covers anything above 8.
-  const sightings = CREATURE_LADDER.map(({ guesses, kind }) => {
-    const easy = stats.sightings.easy[guesses] ?? 0;
-    const hard = stats.sightings.hard[guesses] ?? 0;
-    const how = guesses >= MOST_GUESSES_TRACKED ? `Solved in ${guesses} or more` : guesses === 1 ? 'Solved in 1 guess' : `Solved in ${guesses} guesses`;
+  // One creature per winning score (guesses + hints). The seal also covers anything above 8.
+  const sightings = CREATURE_LADDER.map(({ score, kind }) => {
+    const easy = stats.sightings.easy[score] ?? 0;
+    const hard = stats.sightings.hard[score] ?? 0;
+    const how = score >= MOST_GUESSES_TRACKED ? `Score ${score} or more` : `Score ${score}`;
     return { kind, name: CREATURE_NAMES[kind], how, easy, hard, got: easy + hard > 0 };
   });
   const seen = (s: { easy: number; hard: number; got: boolean }) =>
     s.got ? `Seen ${s.easy} on Easy, ${s.hard} on Hard` : 'Not yet sighted';
 
   const count = BADGES.filter((b) => earned[b.kind]).length;
-  const pickedCreature = sightings.find((s) => s.kind === picked);
+  const pickedCreature = sightings.find((s) => s.kind === pickedKind);
   const current = BADGES.find((b) => b.kind === picked) ?? BADGES[0];
   const detail = describe(current);
   const colorways = showAllColorways ? COLORWAYS : COLORWAYS.slice(0, unlocked(current.kind));
@@ -183,20 +190,25 @@ export function Fleet({ today, onClose }: Props) {
       </header>
 
       <table className="averages">
-        <caption>Average guesses to solve</caption>
+        <caption>Averages per solved puzzle</caption>
         <thead>
-          <tr><td /><th scope="col">You</th><th scope="col">Everyone</th></tr>
+          <tr><td /><th scope="col">Guesses</th><th scope="col">Hints</th><th scope="col">Your score</th><th scope="col">Everyone</th></tr>
         </thead>
         <tbody>
           {MODE_LIST.map((mode) => (
             <tr key={mode}>
               <th scope="row">{MODES[mode].label}</th>
-              <td><strong>{oneDecimal(stats.you[mode].average)}</strong> <span>{stats.you[mode].solved} solved</span></td>
+              <td><strong>{oneDecimal(stats.you[mode].average)}</strong></td>
+              <td><strong>{oneDecimal(stats.you[mode].hints)}</strong></td>
+              <td className="averages__score"><strong>{oneDecimal(stats.you[mode].score)}</strong></td>
               <td><strong>{oneDecimal(stats.everyone[mode])}</strong></td>
             </tr>
           ))}
         </tbody>
       </table>
+      <p className="averages__note">
+        Score = guesses + hints, lower is better. {stats.you.easy.solved} Easy and {stats.you.hard.solved} Hard solved.
+      </p>
 
       <div className="segmented" role="group" aria-label="Fleet view">
         <button type="button" className={!showAll ? 'is-on' : undefined} aria-pressed={!showAll} onClick={() => setShowAll(false)}>Harbor</button>
@@ -234,8 +246,8 @@ export function Fleet({ today, onClose }: Props) {
           {trophy && trophyCard}
 
           <header className="fleet__section-head">
-            <h2>Wins in…</h2>
-            <p>Each creature is a sighting for solving in that many guesses.</p>
+            <h2>Wins by score</h2>
+            <p>Each creature is a win with that score: guesses plus hints. Tap one to see it.</p>
             <div className="fleet__key" aria-label="Counts: left is Easy, right is Hard">
               <span><i />Easy</span>
               <span><i className="is-hard" />Hard</span>
@@ -246,8 +258,9 @@ export function Fleet({ today, onClose }: Props) {
               <button
                 key={s.kind}
                 type="button"
-                className={`sighting${s.kind === picked ? ' is-on' : ''}`}
-                onClick={() => setPicked(s.kind)}
+                className={`sighting${s.kind === pickedKind ? ' is-on' : ''}`}
+                aria-pressed={s.kind === pickedKind}
+                onClick={() => setPickedKind(s.kind === pickedKind ? null : s.kind)}
                 aria-label={`${s.name}, ${s.how}, ${seen(s)}`}
               >
                 <Creature kind={s.kind as CreatureKind} look={s.got ? 'color' : 'locked'} size={1.3} />
@@ -255,6 +268,15 @@ export function Fleet({ today, onClose }: Props) {
               </button>
             ))}
           </div>
+          {pickedCreature && (
+            <div className="creature-note" aria-live="polite">
+              <Creature kind={pickedCreature.kind as CreatureKind} look={pickedCreature.got ? 'color' : 'locked'} size={1.2} />
+              <div>
+                <strong>{pickedCreature.name}</strong>
+                <p>{pickedCreature.how} · {seen(pickedCreature)}</p>
+              </div>
+            </div>
+          )}
 
           <header className="fleet__section-head">
             <h2>Streak fleet</h2>
@@ -279,19 +301,7 @@ export function Fleet({ today, onClose }: Props) {
             })}
           </div>
 
-          {pickedCreature ? (
-            <section className="fleet__detail" aria-live="polite">
-              <div className="fleet__detail-top">
-                <div className="fleet__icon fleet__icon--big"><Creature kind={pickedCreature.kind as CreatureKind} look={pickedCreature.got ? 'color' : 'locked'} size={1.7} /></div>
-                <div>
-                  <div className="fleet__name">{pickedCreature.name}</div>
-                  <div className="fleet__how">{pickedCreature.how}</div>
-                  <p className="fleet__note">The two numbers count your sightings: Easy on the left, Hard on the right.</p>
-                  <p className={`fleet__status${pickedCreature.got ? ' is-earned' : ''}`}>{seen(pickedCreature)}</p>
-                </div>
-              </div>
-            </section>
-          ) : (
+          {(
             <section className="fleet__detail" aria-live="polite">
               <div className="fleet__detail-top">
                 <div className="fleet__icon fleet__icon--big"><Boat kind={current.kind as BadgeKind} look={lookOf(current.kind)} size={1.7} /></div>
@@ -324,7 +334,23 @@ export function Fleet({ today, onClose }: Props) {
           <span className={albatross ? undefined : 'is-locked'}><Scenery kind="albatross" size={1.1} /></span>
           <div>
             <strong>Albatross</strong>
-            <p>{albatross ? `Every ship right, every spot wrong. Sighted ${formatDate(albatross, false)}.` : 'Sighted when a guess has every ship right, but every one in the wrong spot.'}</p>
+            <p>{albatross
+              ? `Every ship right, every spot wrong. Sighted ${albatrossCount === 1 ? 'once' : `${albatrossCount} times`}, first on ${formatDate(albatross, false)}.`
+              : 'Sighted when a guess has every ship right, but every one in the wrong spot.'}</p>
+          </div>
+        </div>
+      )}
+      {/* Spyglasses: gold box while golden (free) ones are left, grey once they're used up. The drawing stays in color. */}
+      {!showAll && (
+        <div className={`trophy-card spyglass-card${golden > 0 ? ' is-lit' : ''}`}>
+          <Spyglass size={1.3} />
+          <div>
+            <strong>{golden > 0 ? `Golden spyglass · ${golden} left` : 'Spyglass'}</strong>
+            <p>
+              {golden > 0
+                ? `Free to use in Hard: spots a ship in the right place and adds nothing to your score. You earn ${GOLDEN_PER_BOAT} with every new boat.`
+                : `No golden ones left, so each spyglass adds ${SPYGLASS_COST} to your score. You earn ${GOLDEN_PER_BOAT} golden ones with every new boat.`}
+            </p>
           </div>
         </div>
       )}

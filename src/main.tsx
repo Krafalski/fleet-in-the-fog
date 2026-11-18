@@ -1,6 +1,8 @@
 // Where the app starts: finds <div id="root"> in index.html and draws <App /> inside it.
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+// Testing add-ons in the address (?test, ?seed=30 ...) run first, before anything loads. See TESTING.md.
+import './devUrl';
 import App from './App';
 import { THEME } from './config';
 

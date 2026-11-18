@@ -20,6 +20,11 @@ export type GameState = {
   rounds: number;              // 1 on the first try; goes up by one with every Replay
   earlierGuesses: number;      // guesses made in rounds before this one
   perSpot: boolean;            // feedback marks under each ship (true) or totals at the end of the row
+  revealed: boolean;           // after a daily loss, the fleet stays in the fog until the player asks to see it
+  // Spyglass (Hard, and Practice with totals only): spots a right-spot ship and locks it in place for the rest of the game.
+  locked: (Ship | null)[];     // locked[i] = the ship locked in spot i, or null
+  spyglasses: number;          // spyglasses used in this game
+  spyglassPoints: number;      // what they added to the score (0 for a golden one, 2 for a regular one)
 };
 
 export type Action =
@@ -32,11 +37,19 @@ export type Action =
   | { type: 'REPLAY' }
   | { type: 'GAVE_UP'; answer: Ship[] }   // practice only: end the game and show the fleet
   | { type: 'SET_PER_SPOT'; perSpot: boolean } // practice only: the feedback toggle
+  | { type: 'REVEAL' }                     // after a loss: lift the fog and show the fleet
+  | { type: 'SPYGLASS'; spot: number; ship: Ship; cost: number } // lock a right-spot ship in place
   | { type: 'LOAD'; state: GameState };
 
 function emptyRow(mode: Mode): (Ship | null)[] {
   return new Array<Ship | null>(MODES[mode].slots).fill(null);
 }
+
+// A new row: empty, except for ships the spyglass locked in place.
+function startRow(state: GameState): (Ship | null)[] {
+  return emptyRow(state.mode).map((_, i) => state.locked?.[i] ?? null);
+}
+const isLocked = (state: GameState, slot: number) => state.locked?.[slot] != null;
 
 export function newGame(dateKey: string, mode: Mode, ruledOut: Ship[] = []): GameState {
   return {
@@ -48,6 +61,9 @@ export function newGame(dateKey: string, mode: Mode, ruledOut: Ship[] = []): Gam
     status: 'playing', answer: null,
     rounds: 1, earlierGuesses: 0,
     perSpot: MODES[mode].perSpot,
+    revealed: false,
+    locked: emptyRow(mode),
+    spyglasses: 0, spyglassPoints: 0,
   };
 }
 
@@ -75,13 +91,17 @@ export function reducer(state: GameState, action: Action): GameState {
     return {
       ...state,
       guesses: [], feedback: [],
-      current: emptyRow(state.mode),
+      current: startRow(state), // spyglass locks stay, like hints
       cursor: null,
       status: 'playing', answer: null,
       rounds: state.rounds + 1,
       earlierGuesses: totalGuesses(state),
+      revealed: false,
     };
   }
+
+  // Only once the game is over: the fleet is shown.
+  if (action.type === 'REVEAL') return state.status === 'playing' ? state : { ...state, revealed: true };
 
   // Only changes how feedback is drawn, so it works at any time, even after the game is over.
   if (action.type === 'SET_PER_SPOT') return { ...state, perSpot: action.perSpot };
@@ -96,6 +116,7 @@ export function reducer(state: GameState, action: Action): GameState {
       // The ship drops into the chosen spot, or the first empty one.
       const slot = state.cursor ?? state.current.indexOf(null);
       if (slot === -1) return state; // the row is full
+      if (isLocked(state, slot)) return state; // a spyglass ship can't be replaced
       const current = [...state.current];
       current[slot] = action.ship;
       return { ...state, current, cursor: null };
@@ -103,6 +124,7 @@ export function reducer(state: GameState, action: Action): GameState {
 
     case 'TAP_SLOT': {
       const { slot } = action;
+      if (isLocked(state, slot)) return state; // spyglass ships stay put
       // Tapping the chosen spot again lets go of it.
       if (state.cursor === slot) return { ...state, cursor: null };
       // Tapping a ship takes it off the board; the next ship picked goes in its place.
@@ -113,7 +135,7 @@ export function reducer(state: GameState, action: Action): GameState {
     }
 
     case 'CLEAR_ROW':
-      return { ...state, current: emptyRow(state.mode), cursor: null };
+      return { ...state, current: startRow(state), cursor: null };
 
     case 'GUESS_SCORED':
       return {
@@ -121,12 +143,25 @@ export function reducer(state: GameState, action: Action): GameState {
         guesses: [...state.guesses, action.guess],
         feedback: [...state.feedback, action.feedback],
         current: action.carry && action.feedback.spots
-          ? action.guess.map((ship, i) => (action.feedback.spots![i] === 'exact' ? ship : null))
-          : emptyRow(state.mode),
+          ? action.guess.map((ship, i) => (action.feedback.spots![i] === 'exact' || isLocked(state, i) ? ship : null))
+          : startRow(state),
         cursor: null,
         status: action.status,
         answer: action.answer,
       };
+
+    case 'SPYGLASS': {
+      if (isLocked(state, action.spot)) return state;
+      const locked = [...(state.locked ?? emptyRow(state.mode))];
+      locked[action.spot] = action.ship;
+      const current = [...state.current];
+      current[action.spot] = action.ship;
+      return {
+        ...state, locked, current, cursor: null,
+        spyglasses: (state.spyglasses ?? 0) + 1,
+        spyglassPoints: (state.spyglassPoints ?? 0) + action.cost,
+      };
+    }
 
     case 'HINT_GIVEN': {
       if (state.ruledOut.includes(action.ship)) return state;

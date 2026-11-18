@@ -1,13 +1,14 @@
 // Settings you flip while building. Check these before you ship.
 
 // ---------- test game ----------
-// Set this to true to ask for a test game: the board turns burgundy and every answer is all junks.
+// Add ?test to the address to play a test game: the board turns burgundy and every answer is all junks.
+//     localhost:5173/?test
 // Test games are saved separately, so they never mix with real ones.
-const WANT_TEST_GAME = false;
+// More address add-ons (seeding streaks and so on) are in TESTING.md and src/devUrl.ts.
 
-// A test game only switches on where the page is served from one of these places.
-// Anywhere else the game stays real, even if WANT_TEST_GAME was left on by accident.
-const TEST_HOSTS = [
+// ?test and the other add-ons only work where the page is served from one of these places.
+// Anywhere else (your live site, Reddit) they are ignored and the real game runs.
+export const TEST_HOSTS = [
   'localhost',   // npm run dev, any port (localhost:5173 and so on)
   '127.0.0.1',   // the same thing by number
   'DEVVIT_TEST_HOST_GOES_HERE', // placeholder: put the host name of your Devvit playtest here once you know it
@@ -15,10 +16,9 @@ const TEST_HOSTS = [
 
 // The host name is the part of the address before the port: 'localhost' in 'localhost:5173'.
 // There is no window when the tests run (npm run test), so tests always get the real game.
-const inTestPlace = typeof window !== 'undefined' && TEST_HOSTS.includes(window.location.hostname);
-if (WANT_TEST_GAME && !inTestPlace && typeof window !== 'undefined') {
-  console.warn('WANT_TEST_GAME is on in config.ts, but this is not a test place, so the real game is running. Turn it off before you ship.');
-}
+export const inTestPlace = typeof window !== 'undefined' && TEST_HOSTS.includes(window.location.hostname);
+// The add-ons after the ? in the address, e.g. ?test&seed=30. Empty outside a test place.
+export const urlParams = new URLSearchParams(inTestPlace ? window.location.search : '');
 
 // Dev tools (the Reset bar at the top) show only on your own computer's dev server:
 // localhost or 127.0.0.1 on a port starting with 5, like localhost:5173. Never on Reddit.
@@ -26,8 +26,8 @@ export const devTools = typeof window !== 'undefined'
   && ['localhost', '127.0.0.1'].includes(window.location.hostname)
   && window.location.port.startsWith('5');
 
-// What the rest of the app reads. True only when both are true.
-export const testGame = WANT_TEST_GAME && inTestPlace;
+// What the rest of the app reads: true when the address has ?test (in a test place only).
+export const testGame = urlParams.has('test');
 
 // Fleet screen, the "First year / Second year / Third year" strip under a boat.
 // true = always show all three colorways. false = show only the ones the player has unlocked.

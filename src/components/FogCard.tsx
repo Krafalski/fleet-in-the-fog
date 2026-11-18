@@ -2,7 +2,7 @@
 // they part and fade, and the answer fades in underneath.
 import { useEffect, useState } from 'react';
 import { Boat, SHIP_KINDS, SHIP_NAMES } from '../Boat';
-import { MODES, SHIP_COUNT } from '../game/game';
+import { MODES, SHIP_COUNT, isPractice } from '../game/game';
 import type { Ship } from '../game/game';
 import type { GameState } from '../game/reducer';
 
@@ -16,12 +16,17 @@ export function FogCard({ state, boatSize }: { state: GameState; boatSize: numbe
   const { slots, ships } = MODES[state.mode];
   const randomShip = (): Ship => Math.floor(Math.random() * Math.min(ships, SHIP_COUNT));
   const over = state.status !== 'playing';
+  // A daily loss keeps the fleet hidden until the player taps Reveal the fleet (they may want to keep trying).
+  const hidden = state.status === 'lost' && !state.revealed && !isPractice(state.mode);
+  const answer = hidden ? null : state.answer;
+  const lifting = over && !hidden;
+
 
   // While the fleet is hidden, each spot shows a faint ship shape. They are picked at random
   // and have nothing to do with the answer; every so often one of them changes.
   const [shapes, setShapes] = useState<Ship[]>(() => Array.from({ length: slots }, randomShip));
   useEffect(() => {
-    if (over) return;
+    if (lifting) return;
     const timer = window.setInterval(() => {
       setShapes((old) => {
         const next = [...old];
@@ -30,19 +35,19 @@ export function FogCard({ state, boatSize }: { state: GameState; boatSize: numbe
       });
     }, SHAPE_CHANGE_MS);
     return () => window.clearInterval(timer);
-  }, [over]);
+  }, [lifting]);
 
   let label = `${slots} ships came in before dawn`;
   if (state.status === 'won') label = 'The fog lifts. Here is the fleet.';
-  if (state.status === 'lost') label = 'The fog lifts. This was the fleet.';
+  if (state.status === 'lost') label = hidden ? 'The fleet is still out there in the fog' : 'The fog lifts. This was the fleet.';
 
   return (
-    <div className={`fog-card${over ? ' fog-card--lifting' : ''}`}>
-      <div className={over ? 'fog-reveal' : undefined}>
+    <div className={`fog-card${lifting ? ' fog-card--lifting' : ''}`}>
+      <div className={lifting ? 'fog-reveal' : undefined}>
         <p className="fog-card__label">{label}</p>
         <div className="fog-card__row">
           {Array.from({ length: slots }, (_, i) => {
-            const ship = state.answer ? state.answer[i] : null;
+            const ship = answer ? answer[i] : null;
             return (
               <div
                 key={i}
@@ -58,8 +63,8 @@ export function FogCard({ state, boatSize }: { state: GameState; boatSize: numbe
           })}
         </div>
       </div>
-      <div className={`cloud cloud--left${over ? ' lifting' : ''}`} aria-hidden="true" />
-      <div className={`cloud cloud--right${over ? ' lifting' : ''}`} aria-hidden="true" />
+      <div className={`cloud cloud--left${lifting ? ' lifting' : ''}`} aria-hidden="true" />
+      <div className={`cloud cloud--right${lifting ? ' lifting' : ''}`} aria-hidden="true" />
     </div>
   );
 }

@@ -217,7 +217,9 @@ h1, h2, p { margin: 0; }
 .day-panel__replay { margin-top: -6px; text-align: center; font-size: 14px; font-weight: 600; color: var(--ink-muted); }
 
 /* ---------- dev bar (localhost only) ---------- */
-.devbar { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 6px 8px; background: var(--soot); color: var(--on-ink); font-size: 12px; }
+.devbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; padding: 6px 8px; background: var(--soot); color: var(--on-ink); font-size: 12px; }
+.devbar a { color: var(--on-ink); font-weight: 700; }
+.devbar__note { flex-basis: 100%; text-align: center; opacity: 0.8; }
 .devbar button { padding: 4px 10px; border-radius: 8px; border: 1px solid var(--on-ink); background: transparent; color: var(--on-ink); font-size: 12px; font-weight: 600; }
 
 /* ---------- the moment a game ends ---------- */
@@ -234,9 +236,9 @@ h1, h2, p { margin: 0; }
 @keyframes missedFade { to { opacity: 0.6; } }
 
 /* The banner where Log guess was. */
-.end-banner { min-height: 52px; padding: 8px 14px; border: 0; border-radius: 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; animation: bannerIn 600ms cubic-bezier(.2, 1.4, .4, 1) 600ms both; }
-.end-banner strong { font-family: var(--font-display); font-weight: 500; font-size: 22px; }
-.end-banner span { font-size: 13px; }
+.end-banner { box-sizing: border-box; height: 52px; flex: none; padding: 4px 14px; border: 0; border-radius: 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; animation: bannerIn 600ms cubic-bezier(.2, 1.4, .4, 1) 600ms both; }
+.end-banner strong { font-family: var(--font-display); font-weight: 500; font-size: 19px; line-height: 1.1; }
+.end-banner span { font-size: 12px; line-height: 1.2; }
 .end-banner--won { background: var(--lantern-pale); box-shadow: 0 0 0 2px var(--lantern), 0 0 18px var(--lantern-glow); color: var(--ink); }
 .end-banner--lost { background: var(--panel); color: var(--ink); box-shadow: 0 0 0 1px var(--line-dashed); }
 @keyframes bannerIn { from { opacity: 0; transform: scale(0.85); } to { opacity: 1; transform: scale(1); } }
@@ -321,10 +323,13 @@ h1, h2, p { margin: 0; }
 .share-key { margin: -6px 0 0; text-align: center; font-size: 12px; color: var(--ink-muted); }
 
 /* ---------- bigger anchors ---------- */
-.pegs { grid-template-columns: repeat(2, 16px); gap: 3px; }
-.pegs--wide { grid-template-columns: repeat(3, 16px); }
+/* Width = columns x 16px + the gaps between them, so the third anchor isn't cut off. */
+.pegs { grid-template-columns: repeat(2, 16px); gap: 3px; width: 35px; }
+.pegs--wide { grid-template-columns: repeat(3, 16px); width: 54px; }
+.pegs--none { width: 0; }
 .mini-anchor { width: 16px; height: 16px; }
-.pegs .peg--miss, .pegs .peg--blank { margin: 5.5px; }
+/* Anchors only: no dots for misses or empty rows. The spot stays, so anchors don't shift around. */
+.pegs .peg--miss, .pegs .peg--blank { margin: 5.5px; visibility: hidden; }
 
 /* ---------- carry toggle ---------- */
 .carry-toggle { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 12px; color: var(--ink-muted); cursor: pointer; }
@@ -417,3 +422,36 @@ h1, h2, p { margin: 0; }
 /* Text buttons that carry a top-bar icon, so the icons up top become familiar. */
 .with-icon { display: inline-flex; align-items: center; gap: 6px; }
 .btn-icon { flex: none; }
+
+/* ---------- score ---------- */
+.stats__score strong { color: var(--ink); }
+.stats__score span { font-weight: 700; color: var(--ink); }
+.stats__note { margin: -6px 0 0; text-align: center; font-size: 12px; color: var(--ink-muted); }
+
+/* ---------- after a loss: keep trying or reveal ---------- */
+.lost-choice { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 12px; border-radius: 16px; background: var(--panel); border: 2px dashed var(--line-dashed); text-align: center; }
+.lost-choice p { margin: 0; font-size: 14px; }
+.lost-choice__buttons { display: flex; gap: 10px; }
+
+/* ---------- a tapped creature's note, right under the grid ---------- */
+.creature-note { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 16px; background: var(--paper); margin-top: -4px; }
+.creature-note strong { font-family: var(--font-display); font-weight: 500; font-size: 18px; }
+.creature-note p { margin: 2px 0 0; font-size: 13px; color: var(--ink-muted); }
+
+/* ---------- fleet averages: guesses, hints, score, everyone ---------- */
+.averages th, .averages td { padding: 8px 8px; }
+.averages thead th { font-size: 11px; }
+.averages__score strong { font-weight: 700; }
+.averages__note { margin: -6px 0 0; padding: 0 6px; font-size: 12px; color: var(--ink-muted); }
+
+/* ---------- spyglass ---------- */
+/* A ship the spyglass spotted: a small spyglass on it, and a gold ring under it. It can't be moved. */
+.slot--locked { box-shadow: inset 0 0 0 2px var(--lantern); background: var(--lantern-pale); }
+.slot__spyglass { position: absolute; top: -10px; right: -12px; display: flex; pointer-events: none; }
+.spyglass-btn { display: inline-flex; align-items: center; gap: 4px; padding: 0 10px 0 6px; }
+.spyglass-btn small { font-weight: 500; color: var(--ink-muted); }
+.spyglass-btn--golden { border: 2px solid var(--lantern); background: var(--lantern-pale); }
+.spyglass-btn--golden small { color: var(--gold-text); }
+.spyglass-note { margin: -4px 0 0; text-align: center; font-size: 12px; color: var(--ink-muted); }
+.spyglass-card { background: var(--panel); border: 2px dashed var(--line-dashed); }
+.spyglass-card.is-lit { background: var(--lantern-pale); border: 2px solid var(--lantern); box-shadow: 0 0 16px var(--lantern-glow); }

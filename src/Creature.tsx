@@ -23,18 +23,18 @@ export const CREATURE_NAMES: Record<CreatureKind, string> = {
   medic: 'Rescue dolphin', // streak repair
 };
 
-// Which creature you sight for solving in N guesses. Commonest first, rarest last.
-// The seal covers 8 or more (Hard allows 10 guesses). Shown as a 4 x 2 grid in this order.
+// Which creature you sight for a winning score of N (score = guesses + hints). Commonest first, rarest last.
+// The seal covers a score of 8 or more. Shown as a 4 x 2 grid in this order.
 // Not on the ladder: squid and nautilus (spares), nessie (saved for a mystery).
-export const CREATURE_LADDER: { guesses: number; kind: CreatureKind }[] = [
-  { guesses: 8, kind: 'seal' },
-  { guesses: 7, kind: 'turtle' },
-  { guesses: 6, kind: 'dolphin' },
-  { guesses: 5, kind: 'octopus' },
-  { guesses: 4, kind: 'shark' },
-  { guesses: 3, kind: 'manta' },
-  { guesses: 2, kind: 'beluga' },
-  { guesses: 1, kind: 'whale' },
+export const CREATURE_LADDER: { score: number; kind: CreatureKind }[] = [
+  { score: 8, kind: 'seal' },
+  { score: 7, kind: 'turtle' },
+  { score: 6, kind: 'dolphin' },
+  { score: 5, kind: 'octopus' },
+  { score: 4, kind: 'shark' },
+  { score: 3, kind: 'manta' },
+  { score: 2, kind: 'beluga' },
+  { score: 1, kind: 'whale' },
 ];
 
 const DRAWINGS: Record<CreatureKind, ReactElement> = {

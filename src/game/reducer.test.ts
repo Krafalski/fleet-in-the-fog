@@ -139,3 +139,45 @@ describe('carrying right-spot ships', () => {
     expect(s.current[0]).toBe(null);
   });
 });
+
+describe('reveal after a loss', () => {
+  test('the fleet stays hidden until Reveal, and a Replay hides it again', () => {
+    const lost: GameState = { ...newGame('2026-11-17', 'easy'), status: 'lost', answer: [0, 1, 2, 3] };
+    expect(lost.revealed).toBe(false);
+    const shown = reducer(lost, { type: 'REVEAL' });
+    expect(shown.revealed).toBe(true);
+    expect(reducer(shown, { type: 'REPLAY' }).revealed).toBe(false);
+  });
+  test('Reveal does nothing mid-game', () => {
+    const game = newGame('2026-11-17', 'easy');
+    expect(reducer(game, { type: 'REVEAL' }).revealed).toBe(false);
+  });
+});
+
+describe('spyglass', () => {
+  const hard = () => ({ ...newGame('2026-11-18', 'hard') });
+  test('locks a ship in its spot, and every new row starts with it', () => {
+    let s: GameState = reducer(hard(), { type: 'SPYGLASS', spot: 2, ship: 4, cost: 0 });
+    expect(s.current[2]).toBe(4);
+    expect(s.spyglasses).toBe(1);
+    s = reducer(s, { type: 'GUESS_SCORED', guess: [0, 0, 4, 0, 0], feedback: { exact: 1, near: 0 }, status: 'playing', answer: null });
+    expect(s.current).toEqual([null, null, 4, null, null]);
+    s = reducer(s, { type: 'CLEAR_ROW' });
+    expect(s.current[2]).toBe(4);
+  });
+  test("a locked ship can't be tapped off or replaced", () => {
+    let s: GameState = reducer(hard(), { type: 'SPYGLASS', spot: 0, ship: 3, cost: 2 });
+    s = reducer(s, { type: 'TAP_SLOT', slot: 0 });
+    expect(s.current[0]).toBe(3);
+    s = reducer(s, { type: 'PICK_SHIP', ship: 1 });
+    expect(s.current[0]).toBe(3);
+    expect(s.current[1]).toBe(1);
+  });
+  test('points add up, and a Replay keeps the locks', () => {
+    let s: GameState = reducer(hard(), { type: 'SPYGLASS', spot: 0, ship: 3, cost: 2 });
+    s = reducer(s, { type: 'SPYGLASS', spot: 1, ship: 3, cost: 0 });
+    expect(s.spyglassPoints).toBe(2);
+    s = reducer(s, { type: 'REPLAY' });
+    expect(s.current.slice(0, 2)).toEqual([3, 3]);
+  });
+});

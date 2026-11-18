@@ -21,10 +21,10 @@ export const MODE_LIST: DailyMode[] = ['easy', 'hard'];
 // perSpot = feedback marks sit under each ship (true) or are only totals at the end of the row (false).
 // Practice lets the player switch perSpot with a toggle; this is only its starting value.
 export const MODES: Record<Mode, { slots: number; ships: number; maxGuesses: number; perSpot: boolean; label: string }> = {
-  easy: { slots: 4, ships: 6, maxGuesses: 8, perSpot: true, label: 'Easy' },
+  easy: { slots: 4, ships: 6, maxGuesses: 6, perSpot: true, label: 'Easy' },
   hard: { slots: 5, ships: 6, maxGuesses: 10, perSpot: false, label: 'Hard' },
   // Practice starts with marks under each ship (training wheels); its toggle can switch to totals.
-  'practice-easy': { slots: 4, ships: 6, maxGuesses: 8, perSpot: true, label: 'Practice' },
+  'practice-easy': { slots: 4, ships: 6, maxGuesses: 6, perSpot: true, label: 'Practice' },
   'practice-hard': { slots: 5, ships: 6, maxGuesses: 10, perSpot: true, label: 'Practice' },
 };
 
@@ -141,6 +141,29 @@ export function randomCode(slots: number, rand: () => number, ships = SHIP_COUNT
 export function nextHint(code: Ship[], ruledOut: Ship[], ships = SHIP_COUNT): Ship | null {
   for (let s = 0; s < ships; s++) {
     if (!code.includes(s) && !ruledOut.includes(s)) return s;
+  }
+  return null;
+}
+
+// ---------- score ----------
+
+// A game's score: every guess plus every hint, plus what spyglasses added. Lower is better, like golf.
+// Creatures are sighted by score, so hints and spyglasses cost you a better creature.
+// They never cost a guess: you only lose by running out of guesses.
+export const gameScore = (guesses: number, hints: number, spyglassPoints = 0) => guesses + hints + spyglassPoints;
+
+// ---------- spyglass ----------
+// Hard (and Practice with totals only): spots one ship that is in the right spot and locks it there.
+export const SPYGLASS_COST = 2;          // points a regular spyglass adds to the score
+export const GOLDEN_PER_BOAT = 2;        // golden (free) spyglasses earned with every new streak boat
+
+// Which spot a spyglass shows: a ship the player already had in the right spot, newest guess first,
+// leftmost first, skipping spots already locked. Null when no guess has a right-spot ship left to find.
+export function spyglassSpot(code: Ship[], guesses: Ship[][], locked: (Ship | null)[]): { spot: number; ship: Ship } | null {
+  for (let g = guesses.length - 1; g >= 0; g--) {
+    for (let i = 0; i < code.length; i++) {
+      if (guesses[g][i] === code[i] && locked[i] == null) return { spot: i, ship: code[i] };
+    }
   }
   return null;
 }

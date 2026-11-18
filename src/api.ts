@@ -12,14 +12,15 @@
 import { BADGES, TROPHY_DAYS, yearsEarned, MYSTERY_BADGE, badgesForStreak, computeStreak } from './game/badges';
 import type { BoatLook } from './Boat';
 import { testGame } from './config';
-import { MODES, MODE_LIST, dateKeyFor, isPractice, isWin, nextHint, puzzleForDate, score, scoreSpots } from './game/game';
+import { GOLDEN_PER_BOAT, MODES, MODE_LIST, SPYGLASS_COST, dateKeyFor, gameScore, isPractice, isWin, nextHint, puzzleForDate, score, scoreSpots, spyglassSpot } from './game/game';
 import type { DailyMode, Feedback, Mode, Ship } from './game/game';
 import { newGame, totalGuesses } from './game/reducer';
 import { DAYS_PER_REPAIR, daysCovered, findGap, pickRepairs, repairsEarned } from './game/repairs';
 import type { RepairStock } from './game/repairs';
 import type { GameState, Status } from './game/reducer';
 
-export type GuessResult = { feedback: Feedback; status: Status; answer: Ship[] | null ; albatross?: boolean };
+// albatross: set when this guess was an albatross; the number is how many the player has sighted, this one included.
+export type GuessResult = { feedback: Feedback; status: Status; answer: Ship[] | null; albatross?: number };
 
 // One finished puzzle.
 export type DayResult = {
@@ -30,6 +31,8 @@ export type DayResult = {
   rounds: number;   // 1 = solved on the first try; 2 or more = used Replay
   hints: number;
   playedOn: string; // the day it was actually played; only same-day plays count for streaks
+  spyglasses?: number;     // spyglasses used (older saves have none)
+  spyglassPoints?: number; // what they added to the score
 };
 
 export type Progress = {
@@ -39,6 +42,8 @@ export type Progress = {
   newColorsOn: Record<string, string>; // badge kind -> the day its latest colorway (year 2 or 3) was unlocked
   trophy: string | null;               // the day the Fleet Admiral cup was earned, or null
   albatross: string | null;            // the day the albatross was first sighted, or null
+  albatrossCount: number;              // how many albatrosses the player has sighted
+  goldenSpyglasses: number;            // golden (free) spyglasses ready to use
   looks: Record<string, BoatLook>;     // badge kind -> the colorway the player chose to show
   repairs: RepairStock;                // streak repairs the player has, ready to use
   nextRepairIn: number;                // days of play until the next repair is earned
@@ -51,12 +56,20 @@ export type DayStats = { average: number; players: number };
 
 // Numbers for the fleet screen. Averages count solved puzzles only; null = nothing to average yet.
 export type Stats = {
-  you: Record<DailyMode, { average: number | null; solved: number }>;
-  everyone: Record<DailyMode, number | null>;
-  // sightings.easy[3] = how many Easy puzzles were solved in 3 guesses. 8 also holds anything above 8.
+  // average = guesses, hints = hints used, score = guesses + hints; each averaged per solved puzzle.
+  you: Record<DailyMode, { average: number | null; hints: number | null; score: number | null; solved: number }>;
+  everyone: Record<DailyMode, number | null>; // everyone's average score
+  // sightings.easy[3] = how many Easy puzzles were won with a score of 3. 8 also holds anything above 8.
   sightings: Record<DailyMode, Record<number, number>>;
 };
-export const MOST_GUESSES_TRACKED = 8;
+export const MOST_GUESSES_TRACKED = 8; // the highest score with its own creature (the seal)
+// A saved result's score. Results saved before hints were recorded count as 0 hints.
+export const resultScore = (r: DayResult) => gameScore(r.guesses, r.hints ?? 0, r.spyglassPoints ?? 0);
+
+// What the spyglass would do right now, without using it.
+// available = there is a right-spot ship to show. golden = the next one is free (+0); otherwise it adds SPYGLASS_COST.
+export type SpyglassCheck = { allowed: boolean; available: boolean; golden: boolean; goldenLeft: number };
+export type SpyglassUse = { spot: number; ship: Ship; cost: number; golden: boolean };
 
 export type GameApi = {
   // The player's saved game for this day and mode, or a fresh one.
@@ -68,6 +81,10 @@ export type GameApi = {
   submitGuess(state: GameState, guess: Ship[]): Promise<GuessResult>;
   // Which ship to grey out, or null if there is nothing left to rule out.
   askHint(state: GameState): Promise<Ship | null>;
+  // Whether the spyglass can be used now, and what it would cost. Changes nothing.
+  checkSpyglass(state: GameState): Promise<SpyglassCheck>;
+  // Use one: which spot and ship to lock, and what it cost. Uses up a golden one when there is one (daily games only).
+  useSpyglass(state: GameState, today: string): Promise<SpyglassUse | null>;
   // Practice only: the answer, for Give up.
   revealAnswer(state: GameState): Promise<Ship[]>;
   // Call once when a game ends. Saves the result and hands out any new badge boats.
@@ -126,8 +143,35 @@ const TEST_REPAIRS: RepairStock = testGame ? { ones: 2, threes: 2 } : { ones: 0,
 const YEARS_KEY = `${STORE}:years`;
 const YEARS_ON_KEY = `${STORE}:yearsOn`; // badge kind -> day its latest colors unlocked
 const TROPHY_KEY = `${STORE}:trophy`;     // the day the Fleet Admiral cup was earned
-// The albatross: a daily guess with every ship right and every one in the wrong spot. Earned once.
-const ALBATROSS_KEY = `${STORE}:albatross`;
+// The albatross: a daily guess with every ship right and every one in the wrong spot.
+// Sighted every time it happens; each sighting is saved as the day it happened.
+const ALBATROSS_KEY = `${STORE}:albatross`;     // older saves: only the day of the first one
+const ALBATROSSES_KEY = `${STORE}:albatrosses`; // ['2026-11-15', '2026-11-20', ...]
+// Golden spyglasses: 2 earned with every streak boat. Saved: the ones used (day and mode), and any added for testing.
+const SPYGLASS_KEY = `${STORE}:spyglass`;
+type SpyglassSaved = { added: number; used: { day: string; mode: DailyMode }[] };
+const readSpyglass = () => read<SpyglassSaved>(SPYGLASS_KEY, { added: 0, used: [] });
+function goldenLeft(): number {
+  const badges = read<Record<string, string>>(BADGES_KEY, {});
+  const boats = BADGES.filter((b) => b.days !== null && badges[b.kind]).length; // streak boats only, not the mystery boat
+  const saved = readSpyglass();
+  return Math.max(0, boats * GOLDEN_PER_BOAT + saved.added - saved.used.length);
+}
+// The spyglass works in Hard, and in Practice with totals only (Easy already shows every spot).
+const spyglassAllowed = (state: GameState) => state.status === 'playing' && !state.perSpot && (state.mode === 'hard' || isPractice(state.mode));
+// Golden ones are only spent on a daily game's first try: Practice and Replays don't count, so they always cost points instead.
+const spendsGolden = (state: GameState) => !isPractice(state.mode) && state.rounds === 1;
+// Testing (?add-golden-spyglass=3): add golden spyglasses.
+export function addGoldenSpyglasses(n: number) {
+  const saved = readSpyglass();
+  write(SPYGLASS_KEY, { ...saved, added: saved.added + n });
+}
+function readAlbatrosses(): string[] {
+  const list = read<string[] | null>(ALBATROSSES_KEY, null);
+  if (list) return list;
+  const first = read<string | null>(ALBATROSS_KEY, null); // carry over a save from before counting
+  return first ? [first] : [];
+}
 
 type RepairsUsed = { usedOnes: number; usedThrees: number; days: string[] }; // days = the missed days that were mended
 const readRepairs = () => read<RepairsUsed>(REPAIRS_KEY, { usedOnes: 0, usedThrees: 0, days: [] });
@@ -213,11 +257,12 @@ export const localApi: GameApi = {
       : guessesMade >= MODES[state.mode].maxGuesses
         ? 'lost'
         : 'playing';
-    // Every ship right, every spot wrong (daily games only): the albatross, the first time it happens.
-    let albatross = false;
-    if (!isPractice(state.mode) && feedback.exact === 0 && feedback.near === guess.length && !read<string | null>(ALBATROSS_KEY, null)) {
-      write(ALBATROSS_KEY, dateKeyFor(new Date()));
-      albatross = true;
+    // Every ship right, every spot wrong (daily games only, past days too): an albatross, every time.
+    let albatross: number | undefined;
+    if (!isPractice(state.mode) && feedback.exact === 0 && feedback.near === guess.length) {
+      const seen = [...readAlbatrosses(), dateKeyFor(new Date())];
+      write(ALBATROSSES_KEY, seen);
+      albatross = seen.length;
     }
     return { feedback, status, answer: status === 'playing' ? null : code, albatross };
   },
@@ -225,6 +270,27 @@ export const localApi: GameApi = {
   async askHint(state) {
     const { code } = puzzleForDate(state.dateKey, state.mode);
     return nextHint(code, state.ruledOut, MODES[state.mode].ships);
+  },
+
+  async checkSpyglass(state) {
+    const left = goldenLeft();
+    if (!spyglassAllowed(state)) return { allowed: false, available: false, golden: false, goldenLeft: left };
+    const { code } = puzzleForDate(state.dateKey, state.mode);
+    const found = spyglassSpot(code, state.guesses, state.locked ?? []);
+    return { allowed: true, available: found !== null, golden: spendsGolden(state) && left > 0, goldenLeft: left };
+  },
+
+  async useSpyglass(state, today) {
+    if (!spyglassAllowed(state)) return null;
+    const { code } = puzzleForDate(state.dateKey, state.mode);
+    const found = spyglassSpot(code, state.guesses, state.locked ?? []);
+    if (!found) return null;
+    const golden = spendsGolden(state) && goldenLeft() > 0;
+    if (golden) {
+      const saved = readSpyglass();
+      write(SPYGLASS_KEY, { ...saved, used: [...saved.used, { day: today, mode: state.mode as DailyMode }] });
+    }
+    return { ...found, cost: golden ? 0 : SPYGLASS_COST, golden };
   },
 
   async revealAnswer(state) {
@@ -241,6 +307,7 @@ export const localApi: GameApi = {
     results[key] = {
       dateKey: state.dateKey, mode: state.mode as DailyMode, status: state.status,
       guesses: totalGuesses(state), rounds: state.rounds, hints: state.hintsUsed, playedOn: today,
+      spyglasses: state.spyglasses ?? 0, spyglassPoints: state.spyglassPoints ?? 0,
     };
     write(RESULTS_KEY, results);
 
@@ -263,7 +330,7 @@ export const localApi: GameApi = {
   async loadStats() {
     const results = Object.values(read<Record<string, DayResult>>(RESULTS_KEY, {}));
     const stats: Stats = {
-      you: { easy: { average: null, solved: 0 }, hard: { average: null, solved: 0 } },
+      you: { easy: { average: null, hints: null, score: null, solved: 0 }, hard: { average: null, hints: null, score: null, solved: 0 } },
       everyone: { easy: null, hard: null }, // needs the server: there is only one player in the browser
       sightings: { easy: {}, hard: {} },
     };
@@ -271,10 +338,13 @@ export const localApi: GameApi = {
       const solved = results.filter((r) => r.mode === mode && r.status === 'won');
       if (solved.length) {
         const sum = solved.reduce((total, r) => total + r.guesses, 0);
-        stats.you[mode] = { average: sum / solved.length, solved: solved.length };
+        const hints = solved.reduce((total, r) => total + (r.hints ?? 0), 0);
+        const scores = solved.reduce((total, r) => total + resultScore(r), 0);
+        const n = solved.length;
+        stats.you[mode] = { average: sum / n, hints: hints / n, score: scores / n, solved: n };
       }
       for (const r of solved) {
-        const bucket = Math.min(r.guesses, MOST_GUESSES_TRACKED);
+        const bucket = Math.min(resultScore(r), MOST_GUESSES_TRACKED);
         stats.sightings[mode][bucket] = (stats.sightings[mode][bucket] ?? 0) + 1;
       }
     }
@@ -294,7 +364,9 @@ export const localApi: GameApi = {
       timesEarned,
       newColorsOn: read<Record<string, string>>(YEARS_ON_KEY, {}),
       trophy: read<string | null>(TROPHY_KEY, null),
-      albatross: read<string | null>(ALBATROSS_KEY, null),
+      albatross: readAlbatrosses()[0] ?? null,
+      albatrossCount: readAlbatrosses().length,
+      goldenSpyglasses: goldenLeft(),
       looks: read<Record<string, BoatLook>>(LOOKS_KEY, {}),
       repairs,
       nextRepairIn,
@@ -335,11 +407,17 @@ export const api: GameApi = localApi;
 // ---------- dev tools (only used by the DevBar on localhost) ----------
 // Forget today's games in both modes, so today can be played from the very start.
 // Boats earned today are taken back too, so winning again earns them again.
-export function resetToday(today: string) {
-  for (const mode of ['easy', 'hard'] as const) localStorage.removeItem(gameKey(today, mode));
+// modes: which of today's games to forget (both by default).
+// If the other mode's game today is kept, today's boats and colors stay too, since that game may have earned them.
+export function resetToday(today: string, modes: DailyMode[] = ['easy', 'hard']) {
+  for (const mode of modes) localStorage.removeItem(gameKey(today, mode));
   const results = read<Record<string, DayResult>>(RESULTS_KEY, {});
-  for (const key of Object.keys(results)) if (key.startsWith(`${today}:`)) delete results[key];
+  for (const mode of modes) delete results[`${today}:${mode}`];
   write(RESULTS_KEY, results);
+  // Golden spyglasses used today in these games come back.
+  const spy = readSpyglass();
+  write(SPYGLASS_KEY, { ...spy, used: spy.used.filter((u) => !(u.day === today && modes.includes(u.mode))) });
+  if (Object.keys(results).some((key) => key.startsWith(`${today}:`))) return;
   const badges = read<Record<string, string>>(BADGES_KEY, {});
   for (const kind of Object.keys(badges)) if (badges[kind] === today) delete badges[kind];
   write(BADGES_KEY, badges);
@@ -357,6 +435,7 @@ export function resetToday(today: string) {
   write(YEARS_ON_KEY, yearsOn);
   if (read<string | null>(TROPHY_KEY, null) === today) localStorage.removeItem(TROPHY_KEY);
   if (read<string | null>(ALBATROSS_KEY, null) === today) localStorage.removeItem(ALBATROSS_KEY);
+  write(ALBATROSSES_KEY, readAlbatrosses().filter((day) => day !== today));
 }
 // Forget everything this game has saved (only the test games when the test game is on).
 export function resetAll() {

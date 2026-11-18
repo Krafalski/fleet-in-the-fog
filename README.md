@@ -6,7 +6,7 @@
       App.tsx               Navigation. One piece of state says which screen is showing
                             (game, harbor log, fleet) and which day and difficulty.
       main.tsx              Where the app starts. Same as the one Vite makes.
-      config.ts             Settings to flip while building: WANT_TEST_GAME, THEME, showAllColorways, NEW_GAME_TIME, MAX_REPEATS.
+      config.ts             Settings to flip while building: TEST_HOSTS, THEME, showAllColorways, NEW_GAME_TIME, MAX_REPEATS.
       api.ts                The only file that loads, saves and scores. Local version for now
                             (localStorage). Later, write a server version with the same shape.
       screens/
@@ -84,7 +84,16 @@ Ships are numbers 0-5 everywhere in the logic (0 fisher, 1 junk, 2 mailboat, 3 s
 - Easy 4 slots / 8 guesses, Hard 5 / 10. Practice is not built yet.
 - No ship appears more than MAX_REPEATS times in a code (config.ts, starts at 2).
 - Fleet: double tap a boat to switch between the colorways it has unlocked. showAllColorways in config.ts decides whether locked colorways are shown.
-- WANT_TEST_GAME in config.ts (only switches on at a host listed in TEST_HOSTS, such as localhost): burgundy board, every answer is all junks, saved separately from real games.
+- Testing: add `?test` to the address for the test game, `?seed=30` to fake a streak, and more. They stack: `?test&fresh&seed=29` = test game, wiped clean, with 29 solved days, so winning today earns the Houseboat. Copy-paste examples are in **TESTING.md**.
+- Dev bar (Reset today / Reset all, and a Test / Real switch) shows only on localhost or 127.0.0.1 with a port starting with 5.
+- Modes (MODES in game/game.ts): Easy = 4 spots, 5 ships (no yacht), 8 guesses, a mark under each ship. Hard = 5 spots, 6 ships, 10 guesses, totals at the end of the row. Practice = like Hard, a new random fleet each game, never recorded, with New game, Replay, Give up and a feedback toggle.
+- Tests: `npm run test`. game/*.test.ts check the rules; src/api.test.ts checks what a win saves (seeded streaks, colors by year, the cup, repairs, Reset today), using a pretend localStorage, no browser.
+- Harbor log: each day shows Easy and Hard. Tapping a day opens Easy if neither is played, Hard once Easy is played. LAUNCH_DATE in game/game.ts is the first day it shows (Nov 6, 2026 for testing).
+- Favicon: public/favicon.svg (the app icon). index.html needs <link rel="icon" type="image/svg+xml" href="/favicon.svg" />.
+- When a game ends: the last row lights up, a banner shows for about 3 seconds (tap to skip, ENDING_MS in GameScreen.tsx), then the day's results replace the board. "Show my guesses" swaps the results for the locked board.
+- A row that was already played can't be logged again: the button says "Already played" for 2 seconds.
+- Replay turns the board, fog card and picker grey; only the first game of the day counts.
+- `?test` in the address (only at a host listed in TEST_HOSTS, such as localhost): burgundy board, every answer is all junks, saved separately from real games.
 - Tap a ship and it drops into the next empty spot. Tap a spot to empty it; the next ship goes there.
 - Replay clears the board on the same puzzle. Guesses already made still count, and only the first finished game is recorded.
 - The puzzle changes at NEW_GAME_TIME in NEW_GAME_ZONE (config.ts). It ships as midnight UTC.
