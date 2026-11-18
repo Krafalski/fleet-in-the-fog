@@ -129,7 +129,14 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
     const used = await api.useSpyglass(state, today);
     if (!used) return;
     dispatch({ type: 'SPYGLASS', spot: used.spot, ship: used.ship, cost: used.cost });
-    setSpyNote(`Spot ${used.spot + 1} is locked in. ${used.golden ? 'Golden spyglass: +0.' : `+${used.cost} to your score.`}`);
+    // One line under the board. When the last golden one is gone, it also says when more come.
+    const left = used.golden ? spy.goldenLeft - 1 : 0;
+    const more = spy.nextBoat
+      ? `Next golden ones come with the ${spy.nextBoat.name.toLowerCase()}, in ${spy.nextBoat.days} ${spy.nextBoat.days === 1 ? 'day' : 'days'}.`
+      : 'You have every boat, so no more golden ones.';
+    setSpyNote(used.golden
+      ? `Spot ${used.spot + 1} locked in, free. ${left > 0 ? `${left} golden left.` : `That was your last golden spyglass. ${more}`}`
+      : `Spot ${used.spot + 1} locked in, +${used.cost} to your score.${practice || state.rounds > 1 ? '' : ` No golden ones left. ${more}`}`);
   }
 
   const spyglassButton = spy?.allowed && (
@@ -138,10 +145,12 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
       className={`outline-btn spyglass-btn${spy.golden ? ' spyglass-btn--golden' : ''}`}
       onClick={useSpyglass}
       disabled={!spy.available}
-      aria-label={spy.available ? `Spyglass, ${spy.golden ? 'golden, free' : `adds ${SPYGLASS_COST} to your score`}` : 'Spyglass: needs a ship in the right spot first'}
+      aria-label={`Spyglass, ${spy.golden ? `golden, free, ${spy.goldenLeft} left` : `adds ${SPYGLASS_COST} to your score`}${spy.available ? '' : ', needs a ship in the right spot first'}`}
     >
       <Spyglass size={0.6} />
-      Spyglass <small>{spy.golden ? 'free · +0' : `+${SPYGLASS_COST}`}</small>
+      Spyglass <small>{spy.golden ? 'free' : `+${SPYGLASS_COST}`}</small>
+      {/* How many golden ones are left: a small gold circle on the corner, only while there are any */}
+      {spy.golden && <span className="spyglass-btn__count" aria-hidden="true">{spy.goldenLeft}</span>}
     </button>
   );
 

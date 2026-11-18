@@ -68,7 +68,8 @@ export const resultScore = (r: DayResult) => gameScore(r.guesses, r.hints ?? 0, 
 
 // What the spyglass would do right now, without using it.
 // available = there is a right-spot ship to show. golden = the next one is free (+0); otherwise it adds SPYGLASS_COST.
-export type SpyglassCheck = { allowed: boolean; available: boolean; golden: boolean; goldenLeft: number };
+// nextBoat: the next streak boat (which brings more golden ones) and how many days of streak away it is.
+export type SpyglassCheck = { allowed: boolean; available: boolean; golden: boolean; goldenLeft: number; nextBoat: { name: string; days: number } | null };
 export type SpyglassUse = { spot: number; ship: Ship; cost: number; golden: boolean };
 
 export type GameApi = {
@@ -274,10 +275,13 @@ export const localApi: GameApi = {
 
   async checkSpyglass(state) {
     const left = goldenLeft();
-    if (!spyglassAllowed(state)) return { allowed: false, available: false, golden: false, goldenLeft: left };
+    const streak = streakFrom(read<Record<string, DayResult>>(RESULTS_KEY, {}), dateKeyFor(new Date()));
+    const next = BADGES.find((b) => b.days !== null && b.days > streak);
+    const nextBoat = next && next.days !== null ? { name: next.name, days: next.days - streak } : null;
+    if (!spyglassAllowed(state)) return { allowed: false, available: false, golden: false, goldenLeft: left, nextBoat };
     const { code } = puzzleForDate(state.dateKey, state.mode);
     const found = spyglassSpot(code, state.guesses, state.locked ?? []);
-    return { allowed: true, available: found !== null, golden: spendsGolden(state) && left > 0, goldenLeft: left };
+    return { allowed: true, available: found !== null, golden: spendsGolden(state) && left > 0, goldenLeft: left, nextBoat };
   },
 
   async useSpyglass(state, today) {

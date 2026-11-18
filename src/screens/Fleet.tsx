@@ -166,17 +166,17 @@ export function Fleet({ today, onClose }: Props) {
 
   // The Fleet Admiral cup: at the top of the harbor view once earned, last on the screen until then.
   const trophyCard = (
-      <div className={`trophy-card${trophy ? ' is-lit' : ''}`}>
-        <Trophy size={1.1} locked={!trophy} />
-        <div>
-          <strong>Fleet Admiral</strong>
-          {trophy ? (
-            <p>You are the fleet. Earned {formatDate(trophy, false)}.</p>
-          ) : (
-            <p>Keep every boat sailing for three years, then one more day. {Math.max(0, TROPHY_DAYS - streak)} days to go.</p>
-          )}
-        </div>
+    <div className={`trophy-card${trophy ? ' is-lit' : ''}`}>
+      <Trophy size={1.1} locked={!trophy} />
+      <div>
+        <strong>Fleet Admiral</strong>
+        {trophy ? (
+          <p>You are the fleet. Earned {formatDate(trophy, false)}.</p>
+        ) : (
+          <p>Keep every boat sailing for three years, then one more day. {Math.max(0, TROPHY_DAYS - streak)} days to go.</p>
+        )}
       </div>
+    </div>
   );
 
   return (
@@ -349,7 +349,7 @@ export function Fleet({ today, onClose }: Props) {
             <p>
               {golden > 0
                 ? `Free to use in Hard: spots a ship in the right place and adds nothing to your score. You earn ${GOLDEN_PER_BOAT} with every new boat.`
-                : `No golden ones left, so each spyglass adds ${SPYGLASS_COST} to your score. You earn ${GOLDEN_PER_BOAT} golden ones with every new boat.`}
+                : `No golden spyglasses left, so each spyglass adds ${SPYGLASS_COST} to your score. You earn ${GOLDEN_PER_BOAT} golden ones with every new boat.`}
             </p>
           </div>
         </div>

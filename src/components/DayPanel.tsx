@@ -147,9 +147,11 @@ export function DayPanel({ state, outcome, today, onMode, onOpenLog, onOpenFleet
         <div><strong>{everyone ? everyone.average.toFixed(1) : '–'}</strong><span>Harbor score</span></div>
       </div>
       <p className="stats__note">
-        {spyglasses
-          ? `Score = guesses + hints + ${spyPoints} for ${spyglasses === 1 ? 'the spyglass' : `${spyglasses} spyglasses`}. Lower is better.`
-          : 'Score = guesses + hints. Lower is better.'}
+        {!spyglasses
+          ? 'Score = guesses + hints. Lower is better.'
+          : spyPoints
+            ? `Score = guesses + hints + ${spyPoints} for ${spyglasses === 1 ? 'the spyglass' : 'spyglasses'}. Lower is better.`
+            : `Score = guesses + hints. Golden spyglasses add nothing. Lower is better.`}
       </p>
 
 
