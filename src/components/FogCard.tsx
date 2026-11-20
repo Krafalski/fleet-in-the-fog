@@ -37,7 +37,7 @@ export function FogCard({ state, boatSize }: { state: GameState; boatSize: numbe
     return () => window.clearInterval(timer);
   }, [lifting]);
 
-  let label = `${slots} ships came in before dawn`;
+  let label = `${slots} ships are hiding in the fog`;
   if (state.status === 'won') label = 'The fog lifts. Here is the fleet.';
   if (state.status === 'lost') label = hidden ? 'The fleet is still out there in the fog' : 'The fog lifts. This was the fleet.';
 

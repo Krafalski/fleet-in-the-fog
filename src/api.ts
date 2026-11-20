@@ -20,6 +20,7 @@ import type { RepairStock } from './game/repairs';
 import type { GameState, Status } from './game/reducer';
 
 // albatross: set when this guess was an albatross; the number is how many the player has sighted, this one included.
+// In Practice an albatross is just for fun: albatross is 0 (shown, never counted).
 export type GuessResult = { feedback: Feedback; status: Status; answer: Ship[] | null; albatross?: number };
 
 // One finished puzzle.
@@ -138,6 +139,12 @@ const LOOKS_KEY = `${STORE}:looks`;     // { paper: 'year2' }
 const REPAIRS_KEY = `${STORE}:repairs`; // { usedOnes: 1, usedThrees: 0, days: ['2026-11-15'] }
 // Test games start with a few repairs, so the repair flow can be tried without playing 30 days.
 const TEST_REPAIRS: RepairStock = testGame ? { ones: 2, threes: 2 } : { ones: 0, threes: 0 };
+// Testing (?add-repairs=2, ?add-long-repairs=1): extra repairs, saved on top of the earned ones.
+const REPAIRS_ADDED_KEY = `${STORE}:repairs-added`;
+export function addRepairs(ones: number, threes: number) {
+  const added = read<RepairStock>(REPAIRS_ADDED_KEY, { ones: 0, threes: 0 });
+  write(REPAIRS_ADDED_KEY, { ones: added.ones + ones, threes: added.threes + threes });
+}
 // Earning a boat again in a later year is not built yet, so a real boat counts as earned once.
 // In test games every earned boat counts three times, so the colorway switching can be tried.
 // badge kind -> how many years of colors it has earned (1 to 3). Kept even if the streak later breaks.
@@ -191,9 +198,10 @@ function repairState(results: Record<string, DayResult>, today: string) {
   // Any puzzle finished on its own day counts as a day played, win or lose.
   const daysPlayed = new Set(Object.values(results).filter((r) => r.playedOn === r.dateKey).map((r) => r.dateKey)).size;
   const earned = repairsEarned(daysPlayed);
+  const added = read<RepairStock>(REPAIRS_ADDED_KEY, { ones: 0, threes: 0 });
   const repairs: RepairStock = {
-    ones: earned.ones + TEST_REPAIRS.ones - used.usedOnes,
-    threes: earned.threes + TEST_REPAIRS.threes - used.usedThrees,
+    ones: earned.ones + TEST_REPAIRS.ones + added.ones - used.usedOnes,
+    threes: earned.threes + TEST_REPAIRS.threes + added.threes - used.usedThrees,
   };
   const solved = solvedDays(results);
   const mended = new Set(used.days);
@@ -258,12 +266,17 @@ export const localApi: GameApi = {
       : guessesMade >= MODES[state.mode].maxGuesses
         ? 'lost'
         : 'playing';
-    // Every ship right, every spot wrong (daily games only, past days too): an albatross, every time.
+    // Every ship right, every spot wrong: an albatross, every time.
+    // Daily games (past days too) count it in the fleet. Practice shows it just for fun (0 = not counted).
     let albatross: number | undefined;
-    if (!isPractice(state.mode) && feedback.exact === 0 && feedback.near === guess.length) {
-      const seen = [...readAlbatrosses(), dateKeyFor(new Date())];
-      write(ALBATROSSES_KEY, seen);
-      albatross = seen.length;
+    if (feedback.exact === 0 && feedback.near === guess.length) {
+      if (isPractice(state.mode)) {
+        albatross = 0;
+      } else {
+        const seen = [...readAlbatrosses(), dateKeyFor(new Date())];
+        write(ALBATROSSES_KEY, seen);
+        albatross = seen.length;
+      }
     }
     return { feedback, status, answer: status === 'playing' ? null : code, albatross };
   },

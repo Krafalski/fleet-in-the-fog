@@ -203,11 +203,19 @@ describe('the albatross', () => {
     expect(again.albatross).toBe(2);
     expect((await api.loadProgress(TODAY)).albatrossCount).toBe(2);
   });
-  test('practice never sights it', async () => {
-    const game = newGame('practice-7', 'practice-easy');
-    const { code } = (await import('./game/game')).puzzleForDate('practice-7', 'practice-easy');
-    const out = await api.submitGuess(game, [code[1], code[2], code[3], code[0]]);
-    expect(out.albatross).toBe(undefined);
+  test('practice shows it for fun (0) but never counts it', async () => {
+    // Find a practice fleet where moving every ship one spot over gives every ship right, every spot wrong.
+    const { puzzleForDate } = await import('./game/game');
+    let key = '';
+    let guess: number[] = [];
+    for (let i = 0; i < 500 && !key; i++) {
+      const { code } = puzzleForDate(`practice-${i}`, 'practice-easy');
+      const g = [code[1], code[2], code[3], code[0]];
+      if (g.every((ship, spot) => ship !== code[spot])) { key = `practice-${i}`; guess = g; }
+    }
+    const out = await api.submitGuess(newGame(key, 'practice-easy'), guess);
+    expect(out.albatross).toBe(0);
+    expect((await api.loadProgress(TODAY)).albatrossCount).toBe(0);
   });
 });
 
@@ -332,5 +340,15 @@ describe('spyglass', () => {
     await api.useSpyglass(await hardWithRightSpot(), TODAY);
     resetToday(TODAY, ['hard']);
     expect((await api.loadProgress(TODAY)).goldenSpyglasses).toBe(2);
+  });
+});
+
+describe('adding repairs (?add-repairs=, ?add-long-repairs=)', () => {
+  test('added repairs show up in the stock', async () => {
+    const { addRepairs } = await import('./api');
+    addRepairs(2, 1);
+    const p = await api.loadProgress(TODAY);
+    expect(p.repairs.ones).toBe(2);
+    expect(p.repairs.threes).toBe(1);
   });
 });

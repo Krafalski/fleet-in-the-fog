@@ -181,3 +181,34 @@ describe('spyglass', () => {
     expect(s.current.slice(0, 2)).toEqual([3, 3]);
   });
 });
+
+describe('dragging ships in the row', () => {
+  test('drop on a ship: they swap; drop on an empty spot: it moves', () => {
+    let s: GameState = { ...newGame('2026-11-18', 'easy'), current: [0, 1, null, 3] };
+    s = reducer(s, { type: 'MOVE_SHIP', from: 0, to: 1 });
+    expect(s.current).toEqual([1, 0, null, 3]);
+    s = reducer(s, { type: 'MOVE_SHIP', from: 3, to: 2 });
+    expect(s.current).toEqual([1, 0, 3, null]);
+  });
+  test("spyglass ships don't move, and nothing can be dropped on them", () => {
+    let s: GameState = { ...newGame('2026-11-18', 'hard'), current: [4, 1, null, null, null], locked: [4, null, null, null, null] };
+    expect(reducer(s, { type: 'MOVE_SHIP', from: 0, to: 2 }).current).toEqual(s.current);
+    expect(reducer(s, { type: 'MOVE_SHIP', from: 1, to: 0 }).current).toEqual(s.current);
+  });
+});
+
+describe('note flags', () => {
+  const played = (): GameState => ({ ...newGame('2026-11-18', 'hard'), guesses: [[0, 1, 2, 3, 4]], feedback: [{ exact: 0, near: 1 }] });
+  test('tapping cycles: right spot, wrong spot, not in fleet, then off', () => {
+    let s = played();
+    const order: (string | undefined)[] = [];
+    for (let i = 0; i < 4; i++) { s = reducer(s, { type: 'NOTE', row: 0, spot: 2 }); order.push(s.notes['0:2']); }
+    expect(order).toEqual(['exact', 'near', 'no', undefined]);
+  });
+  test('only finished rows take flags, and a Replay starts clean', () => {
+    let s = reducer(played(), { type: 'NOTE', row: 1, spot: 0 });
+    expect(Object.keys(s.notes).length).toBe(0);
+    s = reducer(s, { type: 'NOTE', row: 0, spot: 0 });
+    expect(reducer(s, { type: 'REPLAY' }).notes).toEqual({});
+  });
+});

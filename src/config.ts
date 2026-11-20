@@ -20,6 +20,10 @@ export const inTestPlace = typeof window !== 'undefined' && TEST_HOSTS.includes(
 // The add-ons after the ? in the address, e.g. ?test&seed=30. Empty outside a test place.
 export const urlParams = new URLSearchParams(inTestPlace ? window.location.search : '');
 
+// Note flags on finished rows: one tap moves to the next flag, or (?flags=double while testing) a double tap does.
+// Pick one after testing and delete the other.
+export const FLAG_TAP: 'single' | 'double' = urlParams.get('flags') === 'double' ? 'double' : 'single';
+
 // Dev tools (the Reset bar at the top) show only on your own computer's dev server:
 // localhost or 127.0.0.1 on a port starting with 5, like localhost:5173. Never on Reddit.
 export const devTools = typeof window !== 'undefined'

@@ -16,6 +16,8 @@ The code for them is in `src/devUrl.ts`.
 | `&skip=1,2` | positive whole numbers, separated by `,` | Use with `seed`: leave these days out, counted back from today (1 = yesterday, 2 = the day before). They don't have to be in a row: `&skip=3,10` leaves out two separate days. |
 | `&mode=hard` | `easy`, `hard` or `all` (no value: `easy`) | Use with `seed`: which games to seed. `all` seeds both. |
 | `?add-golden-spyglass=3` | a positive whole number | Add 3 golden (free) spyglasses. |
+| `?add-repairs=2` | a positive whole number | Add 2 one-day streak repairs. |
+| `?add-long-repairs=1` | a positive whole number | Add 1 three-day streak repair. |
 | `?restart-today=easy` | `easy`, `hard` or `all` (no value: `all`) | Play today's game again from the start. `all` does both (same as **Reset today**). |
 
 - The first add-on starts with `?`. Every one after it starts with `&`.
@@ -32,8 +34,8 @@ Add-ons stack: put as many as you like in one address. For example:
 
 The result: winning today gives you a 4-day streak (3 seeded days plus today) with a 2-day gap behind it, so you get the repair offer. Using the repair joins everything up into a 30-day streak (mended days don't add to the count: 29 seeded days plus today) and earns the Houseboat.
 
-- They run in this order: `fresh`, then `restart-today`, then `add-golden-spyglass`, then `seed`. So `?fresh&seed=29` always starts clean.
-- After they run, `fresh`, `restart-today`, `add-golden-spyglass`, `seed`, `skip` and `mode` disappear from the address, so reloading the page doesn't seed again. `?test` stays.
+- They run in this order: `fresh`, then `restart-today`, then `add-golden-spyglass`, then `add-repairs` / `add-long-repairs`, then `seed`. So `?fresh&seed=29` always starts clean.
+- After they run, `fresh`, `restart-today`, `add-golden-spyglass`, `add-repairs`, `add-long-repairs`, `seed`, `skip` and `mode` disappear from the address, so reloading the page doesn't seed again. `?test` stays.
 - Any add-on at all (even just `?test`) prints today's answers in the browser console, like `Wednesday, November 18. Easy: R, G, B, P || Hard: B, R, R, P, P`. The letters are the colors: **Y**ellow, **P**urple, **R**ed, **G**reen, **B**lue, **C**oral. With `?test` it shows the test answer (all P).
 - Seeding goes into whichever data you're using: test data with `?test`, real data without.
 - Each seeded win takes a random number of guesses (1 up to the mode's limit), with no hints.
@@ -60,6 +62,7 @@ In a test game, today's answer is all junks: tap the Purple junk 4 times (Easy) 
 | `?test&fresh&seed=5&skip=1,2` | Missed 2 days: the repair offer (test games start with 2 one-day and 2 three-day repairs) |
 | `?test&fresh&seed=15&skip=1,2,3,4,5,6,7,8,9,10` | Gap too big to repair: the streak starts over at 1 |
 | `?fresh&seed=30` | Real data: 30 days played earns your first repair |
+| `?fresh&seed=5&skip=1,2&add-repairs=2` | Real data: missed 2 days, with 2 one-day repairs to mend them |
 | `?test&fresh&seed=20&mode=hard` | 20 days of Hard wins, to fill in the Hard sightings |
 | `?test&restart-today=hard` | Keep everything, just play today's Hard again |
 | `?test&fresh&add-golden-spyglass=1` | Hard: the first spyglass is golden (+0), the next costs +2 |

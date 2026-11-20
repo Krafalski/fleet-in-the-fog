@@ -1,8 +1,9 @@
 // The guess rows: logged rows, the current row, and the empty rows still to come.
 // Each row is one strip of water with the ships floating in it.
 // Scrolls when there are more rows than fit, and keeps the current row in view.
-import { useEffect, useRef } from 'react';
-import type { CSSProperties } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { FLAG_TAP } from '../config';
+import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react';
 import { MODES } from '../game/game';
 import type { Feedback, Spot } from '../game/game';
 import type { GameState } from '../game/reducer';
@@ -10,10 +11,12 @@ import { WaveSlot } from './WaveSlot';
 
 type Props = {
   state: GameState; boatSize: number; onTapSlot: (slot: number) => void;
+  onMoveShip?: (from: number, to: number) => void; // drag a ship to another spot in the current row
+  onNote?: (row: number, spot: number) => void;    // tap a ship in a finished row: next note flag
   lastRow?: 'won' | 'lost' | 'playing'; // set for a moment when the game ends, to light up the final row
 };
 
-export function Board({ state, boatSize, onTapSlot, lastRow }: Props) {
+export function Board({ state, boatSize, onTapSlot, onMoveShip, onNote, lastRow }: Props) {
   const { slots, maxGuesses } = MODES[state.mode];
   const currentRow = state.status === 'playing' ? state.guesses.length : -1;
   const newestRow = state.guesses.length - 1;
@@ -22,6 +25,59 @@ export function Board({ state, boatSize, onTapSlot, lastRow }: Props) {
   useEffect(() => {
     currentRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }, [currentRow]);
+
+  // ---------- dragging a ship to another spot in the current row ----------
+  // Press on a ship and move more than a few pixels: it follows your finger, and lands (swapping) where you let go.
+  // A press that barely moves is still a tap.
+  const press = useRef<{ from: number; x: number; y: number; id: number; moved: boolean } | null>(null);
+  const skipClick = useRef(false); // a drag ends with a click; this stops it counting as a tap
+  const [drag, setDrag] = useState<{ from: number; x: number; y: number; over: number | null } | null>(null);
+  const slotAt = (x: number, y: number) => {
+    const el = document.elementFromPoint(x, y)?.closest('.row--current [data-slot]');
+    return el ? Number(el.getAttribute('data-slot')) : null;
+  };
+  const onPointerDown = (e: ReactPointerEvent) => {
+    const slotEl = (e.target as Element).closest('[data-slot]');
+    if (!slotEl || !onMoveShip) return;
+    const from = Number(slotEl.getAttribute('data-slot'));
+    if (state.current[from] === null || state.locked?.[from] != null) return;
+    press.current = { from, x: e.clientX, y: e.clientY, id: e.pointerId, moved: false };
+  };
+  const onPointerMove = (e: ReactPointerEvent) => {
+    const p = press.current;
+    if (!p || p.id !== e.pointerId) return;
+    const dx = e.clientX - p.x, dy = e.clientY - p.y;
+    if (!p.moved && Math.hypot(dx, dy) < 8) return;
+    if (!p.moved) { p.moved = true; (e.currentTarget as Element).setPointerCapture(e.pointerId); }
+    setDrag({ from: p.from, x: dx, y: dy, over: slotAt(e.clientX, e.clientY) });
+  };
+  const onPointerUp = (e: ReactPointerEvent) => {
+    const p = press.current;
+    press.current = null;
+    if (!p || !p.moved) return;
+    skipClick.current = true;
+    window.setTimeout(() => { skipClick.current = false; }, 0);
+    const to = slotAt(e.clientX, e.clientY);
+    setDrag(null);
+    if (to !== null && to !== p.from && onMoveShip) onMoveShip(p.from, to);
+  };
+  const onPointerCancel = () => { press.current = null; setDrag(null); };
+
+  // ---------- note flags on finished rows ----------
+  // One tap moves to the next flag; with FLAG_TAP 'double' it takes a quick double tap (stray taps do nothing).
+  const lastNoteTap = useRef<{ key: string; at: number } | null>(null);
+  const noteTap = (row: number, spot: number) => {
+    if (!onNote) return;
+    if (FLAG_TAP === 'single') return onNote(row, spot);
+    const key = `${row}:${spot}`;
+    const now = Date.now();
+    if (lastNoteTap.current?.key === key && now - lastNoteTap.current.at < 400) {
+      lastNoteTap.current = null;
+      onNote(row, spot);
+    } else {
+      lastNoteTap.current = { key, at: now };
+    }
+  };
 
   // A logged row shows marks under each ship when the mode asks for it and the row was scored that way.
   const perSpotRow = (r: number) => state.perSpot && r < state.guesses.length && !!state.feedback[r]?.spots;
@@ -38,7 +94,10 @@ export function Board({ state, boatSize, onTapSlot, lastRow }: Props) {
       <div key={r} ref={isCurrent ? currentRef : null} className={`row${isCurrent ? ' row--current' : ''}${lastRow && r === newestRow ? ` row--${lastRow === 'won' ? 'found' : 'missed'}` : ''}`}>
         <span className="row__num">{r + 1}</span>
         <div className="row__slots">
-          <div className={`sea sea--${tone}`}>
+          <div
+            className={`sea sea--${tone}`}
+            {...(isCurrent ? { onPointerDown, onPointerMove, onPointerUp, onPointerCancel } : {})}
+          >
             <Water slots={slots} layer="back" />
             {ships.map((ship, i) => (
               <WaveSlot
@@ -48,8 +107,12 @@ export function Board({ state, boatSize, onTapSlot, lastRow }: Props) {
                 boatSize={boatSize}
                 label={`Row ${r + 1}, spot ${i + 1}`}
                 next={i === nextSpot}
-                onTap={isCurrent ? () => onTapSlot(i) : undefined}
+                onTap={isCurrent ? () => { if (!skipClick.current) onTapSlot(i); } : isPast && onNote && state.status === 'playing' ? () => noteTap(r, i) : undefined}
+                note={isPast ? state.notes?.[`${r}:${i}`] : undefined}
+                movable={isCurrent}
                 locked={isCurrent && state.locked?.[i] != null}
+                drag={isCurrent && drag?.from === i ? drag : null}
+                dropTarget={isCurrent && drag !== null && drag.over === i && drag.from !== i}
               />
             ))}
             <Water slots={slots} layer="front" />

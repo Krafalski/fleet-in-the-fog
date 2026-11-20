@@ -7,14 +7,16 @@
 //   &skip=1,2           with seed: leave these days out, counted back from today (1 = yesterday)
 //   &mode=hard          with seed: which games to seed: easy (the default), hard, or all for both
 //   ?add-golden-spyglass=3  add 3 golden (free) spyglasses
+//   ?add-repairs=2          add 2 one-day streak repairs
+//   ?add-long-repairs=1     add 1 three-day streak repair
 //
 // Any add-on at all (even just ?test) also prints today's answers in the console, for checking.
 //
 //   ?restart-today=easy play today's Easy again from the start (also =hard, or =all for both). Like Reset today.
 //
-// They work together, in this order: fresh, restart-today, add-golden-spyglass, then seed. Example: ?test&fresh&seed=5&skip=1,2
+// They work together, in this order: fresh, restart-today, add-golden-spyglass, add-repairs / add-long-repairs, then seed. Example: ?test&fresh&seed=5&skip=1,2
 // After they run, fresh/seed/skip/mode are taken off the address (test stays), so a reload doesn't seed again.
-import { STORE, addGoldenSpyglasses, resetAll, resetToday } from './api';
+import { STORE, addGoldenSpyglasses, addRepairs, resetAll, resetToday } from './api';
 import type { DayResult } from './api';
 import { inTestPlace, urlParams } from './config';
 import { addDays } from './game/dates';
@@ -77,6 +79,15 @@ function run() {
     addGoldenSpyglasses(golden);
     notes.push(`added ${golden} golden ${golden === 1 ? 'spyglass' : 'spyglasses'}`);
   }
+  const ones = Number(urlParams.get('add-repairs'));
+  const threes = Number(urlParams.get('add-long-repairs'));
+  const okOnes = urlParams.has('add-repairs') && Number.isInteger(ones) && ones > 0;
+  const okThrees = urlParams.has('add-long-repairs') && Number.isInteger(threes) && threes > 0;
+  if (okOnes || okThrees) {
+    addRepairs(okOnes ? ones : 0, okThrees ? threes : 0);
+    const parts = [okOnes ? `${ones} one-day` : '', okThrees ? `${threes} three-day` : ''].filter(Boolean);
+    notes.push(`added ${parts.join(' and ')} ${(okOnes ? ones : 0) + (okThrees ? threes : 0) === 1 ? 'repair' : 'repairs'}`);
+  }
   const n = Number(urlParams.get('seed'));
   if (urlParams.has('seed') && Number.isInteger(n) && n > 0) {
     const asked = urlParams.get('mode');
@@ -91,7 +102,7 @@ function run() {
   console.info(`[Fleet in the Fog] ${devUrlNote} in "${STORE}". Now win today.`);
   // Take the one-time add-ons off the address, so a reload doesn't do them again.
   const keep = new URLSearchParams(window.location.search);
-  for (const name of ['fresh', 'restart-today', 'add-golden-spyglass', 'seed', 'skip', 'mode']) keep.delete(name);
+  for (const name of ['fresh', 'restart-today', 'add-golden-spyglass', 'add-repairs', 'add-long-repairs', 'seed', 'skip', 'mode']) keep.delete(name);
   const rest = keep.toString().replace(/=(&|$)/g, '$1'); // "test=" -> "test"
   window.history.replaceState(null, '', `${window.location.pathname}${rest ? `?${rest}` : ''}${window.location.hash}`);
 }

@@ -328,8 +328,8 @@ h1, h2, p { margin: 0; }
 .pegs--wide { grid-template-columns: repeat(3, 16px); width: 54px; }
 .pegs--none { width: 0; }
 .mini-anchor { width: 16px; height: 16px; }
-/* Anchors only: no dots for misses or empty rows. The spot stays, so anchors don't shift around. */
-.pegs .peg--miss, .pegs .peg--blank { margin: 5.5px; visibility: hidden; }
+/* A dot for every spot without an anchor, so a row with no matches still shows something. */
+.pegs .peg--miss, .pegs .peg--blank { margin: 5.5px; }
 
 /* ---------- carry toggle ---------- */
 .carry-toggle { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 12px; color: var(--ink-muted); cursor: pointer; }
@@ -457,3 +457,30 @@ h1, h2, p { margin: 0; }
 .spyglass-card.is-lit { background: var(--lantern-pale); border: 2px solid var(--lantern); box-shadow: 0 0 16px var(--lantern-glow); }
 .spyglass-btn { position: relative; }
 .spyglass-btn__count { position: absolute; top: -8px; right: -8px; min-width: 20px; height: 20px; padding: 0 5px; box-sizing: border-box; border-radius: 10px; background: var(--lantern); color: var(--soot); font-size: 12px; font-weight: 800; line-height: 20px; text-align: center; box-shadow: 0 0 0 2px var(--fog); }
+
+/* ---------- dragging ships in the current row ---------- */
+.slot--movable { touch-action: none; cursor: grab; } /* so a finger drag moves the ship instead of scrolling */
+.slot--dragging { z-index: 5; cursor: grabbing; }
+.slot--dragging .slot__boat { pointer-events: none; animation: none; filter: drop-shadow(0 6px 6px var(--shadow)); transition: none; }
+.slot--drop { box-shadow: inset 0 0 0 2px var(--lantern-deep); background: var(--lantern-pale); }
+/* Nothing picked: the note keeps its space but can't be seen (so the page doesn't jump). */
+.creature-note--empty { visibility: hidden; }
+
+/* ---------- note flags (the player's own notes on finished rows) ---------- */
+/* At the top right of its spot, like the mockup: in front of the ship so busy sails can't hide it.
+   Rises when it changes. */
+/* bottom 31.25% = the deck line (hull top is at 22 of the ship drawing's 32 units), so the pole stands on deck. */
+.note-flag { position: absolute; left: 60%; bottom: 31.25%; display: flex; z-index: 2; pointer-events: none; transform-origin: bottom center; animation: flag-rise 0.35s ease-out; }
+.slot--notable { cursor: pointer; }
+@keyframes flag-rise { from { transform: translateY(14px) scaleY(0.4); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .note-flag { animation: none; } }
+.legend__notes { border: 0; background: none; padding: 0 2px; font: inherit; font-size: 12px; font-weight: 700; color: var(--ink-muted); text-decoration: underline dotted; text-underline-offset: 3px; cursor: pointer; }
+.notes-tip { margin: 2px 0 0; text-align: center; font-size: 12px; color: var(--ink-muted); }
+.notes-modal { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 20px; background: var(--backdrop); }
+.notes-modal__card { width: 100%; max-width: 360px; display: flex; flex-direction: column; gap: 10px; padding: 20px; border-radius: 20px; background: var(--paper); box-shadow: 0 12px 40px var(--shadow); color: var(--ink); }
+.notes-modal__card h2 { margin: 0; font-family: var(--font-display); font-weight: 500; font-size: 22px; }
+.notes-modal__card p { margin: 0; font-size: 14px; }
+.notes-modal__key { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; font-size: 14px; }
+.notes-modal__key li { display: flex; align-items: center; gap: 10px; }
+.intro__flag { display: inline-block; vertical-align: middle; margin: 0 2px; }
+.outline-btn small { font-weight: 500; color: var(--ink-muted); margin-left: 2px; }
