@@ -9,10 +9,11 @@
 //     const res = await fetch('/api/guess', { method: 'POST', body: JSON.stringify({ dateKey, mode, guess }) });
 // The server runs puzzleForDate() and score(), saves to Redis, and sends back only the feedback.
 // Nothing else in the app has to change.
+import { addDays } from './game/dates';
 import { BADGES, TROPHY_DAYS, yearsEarned, MYSTERY_BADGE, badgesForStreak, computeStreak } from './game/badges';
 import type { BoatLook } from './Boat';
 import { testGame } from './config';
-import { GOLDEN_PER_BOAT, MODES, MODE_LIST, SPYGLASS_COST, dateKeyFor, gameScore, isPractice, isWin, nextHint, puzzleForDate, score, scoreSpots, spyglassSpot } from './game/game';
+import { GOLDEN_PER_BOAT, LAUNCH_DATE, MODES, rowsFor, MODE_LIST, SPYGLASS_COST, dateKeyFor, gameScore, isPractice, isWin, nextHint, puzzleForDate, score, scoreSpots, spyglassSpot } from './game/game';
 import type { DailyMode, Feedback, Mode, Ship } from './game/game';
 import { newGame, totalGuesses } from './game/reducer';
 import { DAYS_PER_REPAIR, daysCovered, findGap, pickRepairs, repairsEarned } from './game/repairs';
@@ -95,6 +96,8 @@ export type GameApi = {
   loadResults(dateKeys: string[], mode: DailyMode): Promise<Record<string, DayResult | undefined>>;
   // Both modes' results for one day, for the end-of-game panel.
   loadDay(dateKey: string): Promise<Record<DailyMode, DayResult | undefined>>;
+  // The oldest past day this mode hasn't been finished on (from launch day up to yesterday), or null.
+  nextUnplayed(mode: DailyMode, today: string): Promise<string | null>;
   // Averages and creature sightings, for the fleet screen.
   loadStats(): Promise<Stats>;
   // Streak and badge boats, for the fleet screen.
@@ -263,7 +266,7 @@ export const localApi: GameApi = {
     const guessesMade = state.guesses.length + 1;
     const status: Status = isWin(feedback, state.mode)
       ? 'won'
-      : guessesMade >= MODES[state.mode].maxGuesses
+      : guessesMade >= rowsFor(state.mode, state.perSpot, state.guesses.length)
         ? 'lost'
         : 'playing';
     // Every ship right, every spot wrong: an albatross, every time.
@@ -344,6 +347,14 @@ export const localApi: GameApi = {
     return { easy: results[`${dateKey}:easy`], hard: results[`${dateKey}:hard`] };
   },
 
+  async nextUnplayed(mode, today) {
+    const results = read<Record<string, DayResult>>(RESULTS_KEY, {});
+    for (let day = LAUNCH_DATE; day < today; day = addDays(day, 1)) {
+      if (!results[`${day}:${mode}`]) return day;
+    }
+    return null;
+  },
+
   async loadStats() {
     const results = Object.values(read<Record<string, DayResult>>(RESULTS_KEY, {}));
     const stats: Stats = {
@@ -355,7 +366,8 @@ export const localApi: GameApi = {
       const solved = results.filter((r) => r.mode === mode && r.status === 'won');
       if (solved.length) {
         const sum = solved.reduce((total, r) => total + r.guesses, 0);
-        const hints = solved.reduce((total, r) => total + (r.hints ?? 0), 0);
+        // Hints = everything that helped: Lookouts (+1 each) and spyglass points (+2 for a paid one).
+        const hints = solved.reduce((total, r) => total + (r.hints ?? 0) + (r.spyglassPoints ?? 0), 0);
         const scores = solved.reduce((total, r) => total + resultScore(r), 0);
         const n = solved.length;
         stats.you[mode] = { average: sum / n, hints: hints / n, score: scores / n, solved: n };

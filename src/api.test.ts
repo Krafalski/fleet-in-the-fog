@@ -271,8 +271,8 @@ describe('restarting one mode today', () => {
 describe('the answer line in the console', () => {
   test('names the day and both fleets in color words', () => {
     const line = answerLine('2026-11-18');
-    expect(line.startsWith('Wednesday, November 18. Easy: ')).toBe(true);
-    expect(line.includes(' || Hard: ')).toBe(true);
+    expect(line.startsWith('Wednesday, November 18. Bay: ')).toBe(true);
+    expect(line.includes(' || Open sea: ')).toBe(true);
   });
 });
 
@@ -350,5 +350,25 @@ describe('adding repairs (?add-repairs=, ?add-long-repairs=)', () => {
     const p = await api.loadProgress(TODAY);
     expect(p.repairs.ones).toBe(2);
     expect(p.repairs.threes).toBe(1);
+  });
+});
+
+describe('next unplayed day', () => {
+  test('the oldest past day not played in that mode', async () => {
+    const { LAUNCH_DATE } = await import('./game/game');
+    expect(await api.nextUnplayed('easy', TODAY)).toBe(LAUNCH_DATE);
+    await api.recordResult({ ...finished('won'), dateKey: LAUNCH_DATE }, TODAY);
+    const next = await api.nextUnplayed('easy', TODAY);
+    expect(next !== LAUNCH_DATE && next !== null).toBe(true);
+    expect(await api.nextUnplayed('hard', TODAY)).toBe(LAUNCH_DATE);
+  });
+});
+
+describe('hints include spyglass points', () => {
+  test('the Hints average counts Lookouts and paid spyglasses', async () => {
+    await api.recordResult({ ...finished('won', 'hard'), hintsUsed: 1, spyglasses: 1, spyglassPoints: 2 }, TODAY);
+    const stats = await api.loadStats();
+    expect(stats.you.hard.hints).toBe(3);
+    expect(stats.you.hard.score).toBe((stats.you.hard.average ?? 0) + 3);
   });
 });

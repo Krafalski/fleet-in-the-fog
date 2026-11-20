@@ -48,21 +48,22 @@ export function IntroModal({ today, onPlay, startOn = 'front' }: { today: string
           <>
             <h2 id="intro-title">How to play</h2>
             <ol className="intro__rules">
-              <li>A fleet of ships is hidden in the fog: {MODES.easy.slots} ships on Easy, {MODES.hard.slots} on Hard. To win, find which ships are in the fleet, and in which order. <b>Ships can repeat</b>: a fleet might have two of one kind, or even be all one kind.</li>
+              <li>A fleet of ships is hidden in the fog: {MODES.easy.slots} ships in the <b>Bay</b> (easy), {MODES.hard.slots} on the <b>Open sea</b> (hard). To win, find which ships are in the fleet, and in which order. <b>Ships can repeat</b>: a fleet might have two of one kind, or even be all one kind.</li>
               <li>The foggy card at the top of the game is where the fleet hides. It isn't a hint: it lifts when you find the fleet.</li>
               <li>Tap a ship to put it in the row. Tap a placed ship to take it back, or drag it to another spot. When every spot is filled, press <b>Log guess</b>.</li>
               <li>
-                <b>Easy</b> marks each ship:
+                In the <b>Bay</b>, anchors mark each ship:
                 <span className="intro__key"><AnchorMark kind="exact" size={20} /> right ship, right spot</span>
                 <span className="intro__key"><AnchorMark kind="near" size={20} /> in the fleet, wrong spot</span>
                 <span className="intro__key">no anchor: not in the fleet</span>
               </li>
               <li>
-                <b>Hard</b> uses the same anchors (<i className="mini-anchor mini-anchor--exact"><MiniAnchor /></i><i className="mini-anchor mini-anchor--near"><MiniAnchor /></i>), but only as totals at the end of the row. They tell you <i>how many</i> ships are right, not <i>which</i> ones.
+                On the <b>Open sea</b>, the same anchors (<i className="mini-anchor mini-anchor--exact"><MiniAnchor /></i><i className="mini-anchor mini-anchor--near"><MiniAnchor /></i>), come only as totals at the end of the row. They tell you <i>how many</i> ships are right, not <i>which</i> ones.
               </li>
               <li>Each row is another try at the same fleet.</li>
+              <li><b>Hints</b> cost points (lower scores are better): the <b>Lookout</b> rules out a ship that isn't in the fleet (+1), and on the Open sea the <b>Spyglass</b> finds a ship in the right spot (+2, or free with a golden one).</li>
               <li><b>Notes</b> (optional): tap a ship in a finished row to raise your own flag: <span className="intro__flag"><NoteFlag kind="exact" size={0.7} /></span> right here, <span className="intro__flag"><NoteFlag kind="near" size={0.7} /></span> somewhere else, <span className="intro__flag"><NoteFlag kind="no" size={0.7} /></span> not in the fleet. They're just for you.</li>
-              <li>Solve it in {MODES.easy.maxGuesses} guesses ({MODES.hard.maxGuesses} on Hard). A new fleet comes in every day.</li>
+              <li>Solve it in {MODES.easy.maxGuesses} guesses ({MODES.hard.maxGuesses} on the Open sea). A new fleet comes in every day.</li>
             </ol>
             {startOn === 'rules' ? (
               // Opened from the bottle during a game: one button, straight back to the game.

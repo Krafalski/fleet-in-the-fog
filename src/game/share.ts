@@ -33,7 +33,7 @@ type ShareInput = {
 export function shareText({ dateKey, mode, won, guesses, hints, spyglasses = 0, spyPoints = 0, creature, streak, rows, perSpot }: ShareInput): string {
   const { slots, maxGuesses, label } = MODES[mode];
   const extras = [
-    hints ? `${hints} ${hints === 1 ? 'hint' : 'hints'}` : '',
+    hints ? `${hints} ${hints === 1 ? 'lookout' : 'lookouts'}` : '',
     spyglasses ? `${spyglasses} ${spyglasses === 1 ? 'spyglass' : 'spyglasses'}` : '',
   ].filter(Boolean);
   const lines = [`Fleet in the Fog · ${formatDate(dateKey, false)} · ${label}`];

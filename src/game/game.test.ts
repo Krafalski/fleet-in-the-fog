@@ -168,3 +168,14 @@ describe('spyglassSpot', () => {
     expect(spyglassSpot(code, [], [null, null, null, null, null])).toBe(null);
   });
 });
+
+describe('rows', () => {
+  test('Practice Bay: 8 rows with totals only, 6 with marks under each ship, never fewer once 6 are used', async () => {
+    const { rowsFor } = await import('./game');
+    expect(rowsFor('practice-easy', false, 0)).toBe(8);
+    expect(rowsFor('practice-easy', true, 3)).toBe(6);
+    expect(rowsFor('practice-easy', true, 6)).toBe(8);
+    expect(rowsFor('easy', false, 0)).toBe(6);
+    expect(rowsFor('practice-hard', true, 0)).toBe(10);
+  });
+});

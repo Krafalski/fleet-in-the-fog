@@ -484,3 +484,68 @@ h1, h2, p { margin: 0; }
 .notes-modal__key li { display: flex; align-items: center; gap: 10px; }
 .intro__flag { display: inline-block; vertical-align: middle; margin: 0 2px; }
 .outline-btn small { font-weight: 500; color: var(--ink-muted); margin-left: 2px; }
+/* Keeps its space but can't be seen or tapped (during the end banner). */
+.actions--holding { visibility: hidden; }
+
+/* ---------- ship panel: your own "out" marks, and the Lookout's moment ---------- */
+.picker__btn { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+.picker__btn--noted { background: var(--ruled-out); }
+.picker__btn--justout { animation: lookout-out 0.7s ease-out; }
+.picker__btn--out .picker__name { text-decoration: line-through; }
+@keyframes lookout-out {
+  0% { box-shadow: 0 0 0 3px var(--lantern), 0 0 16px var(--lantern-glow); background: var(--lantern-pale); }
+  60% { box-shadow: 0 0 0 3px var(--lantern), 0 0 16px var(--lantern-glow); }
+  100% { box-shadow: none; }
+}
+@media (prefers-reduced-motion: reduce) { .picker__btn--justout { animation: none; } }
+
+/* Practice Bay with totals only: the two extra rows fade in */
+.row--extra { animation: row-in 0.3s ease-out; }
+@keyframes row-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .row--extra { animation: none; } }
+/* Practice: a dashed border around the board, so it never looks like the daily game */
+/* An outline, not a border, so the board keeps its full width (a border squeezed the anchor column). */
+.play-area--practice { outline: 2px dashed var(--line-dashed); outline-offset: 6px; border-radius: 18px; }
+
+/* ---------- Bay and Open sea: the water tells you where you are ---------- */
+/* Bay (easy): lighter, calmer water. */
+.game--easy, .game--practice-easy {
+  --wave-current-back: #C4DDDF; --wave-current-front: #95BEC3;
+  --wave-past-back: #D3E3E3;    --wave-past-front: #B5CFD1;
+}
+/* Open sea (hard): deeper blue, but kept medium so the dark hulls and black anchors stay readable. */
+.game--hard, .game--practice-hard {
+  --wave-current-back: #9EBCC9; --wave-current-front: #6C93A6;
+  --wave-past-back: #AFC7D1;    --wave-past-front: #86A7B7;
+  --wave-empty-back: #CCD9DD;   --wave-empty-front: #BCCDD3;
+}
+
+/* Win-screen cards open Your fleet at that creature or boat */
+.earned__slot--tap { cursor: pointer; }
+.earned__slot--tap > div::after { content: 'See in fleet →'; display: block; margin-top: 4px; font-size: 12px; font-weight: 700; color: var(--ink-muted); }
+.earned__slot--tap:active { transform: scale(0.98); }
+
+/* After a win: the next unplayed past day */
+.next-banner { display: flex; align-items: center; gap: 6px; padding: 4px 4px 4px 6px; border-radius: 14px; background: var(--lantern-pale); box-shadow: 0 0 0 2px var(--lantern); animation: row-in 0.3s ease-out; }
+.next-banner__go { margin: 0; display: flex; align-items: center; flex: 1; min-height: 44px; border: 0; background: none; font: inherit; font-weight: 700; color: var(--ink); text-align: left; padding: 0 8px; cursor: pointer; }
+.next-banner__close { width: 44px; height: 44px; border: 0; background: none; color: var(--ink-muted); font-size: 16px; cursor: pointer; }
+.day-panel__past { margin: -6px 0 0; text-align: center; font-size: 13px; color: var(--ink-muted); }
+
+/* ---------- end of game: the fleet sails home (win) or shrinks into the fog (loss) ---------- */
+.board--sail .row .slot__bob { animation: sail-home 1.3s ease-in forwards; animation-delay: calc(var(--row, 0) * 70ms); }
+.board--sink .row .slot__bob { animation: sink-away 0.9s ease-in forwards; animation-delay: calc(var(--row, 0) * 60ms); }
+.board--sail .note-flag, .board--sink .note-flag { opacity: 0; transition: opacity 0.2s; }
+@keyframes sail-home {
+  0% { transform: none; }
+  18% { transform: scaleX(-1); }             /* turn to face the harbor */
+  100% { transform: translateX(-110vw) scaleX(-1); }
+}
+@keyframes sink-away {
+  0% { transform: none; opacity: 1; }
+  100% { transform: scale(0) translateY(10px); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) { .board--sail .row .slot__bob, .board--sink .row .slot__bob { animation: none; } }
+.end-card { position: relative; text-align: center; align-items: center; }
+.end-card--won { box-shadow: 0 0 0 3px var(--lantern), 0 12px 40px var(--shadow); }
+.end-card__x { position: absolute; top: 8px; right: 8px; width: 40px; height: 40px; border: 0; background: none; font-size: 16px; color: var(--ink-muted); cursor: pointer; }
+.end-card__buttons { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 4px; }

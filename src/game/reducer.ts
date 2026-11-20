@@ -27,6 +27,7 @@ export type GameState = {
   spyglassPoints: number;      // what they added to the score (0 for a golden one, 2 for a regular one)
   // The player's own note flags on finished rows, keyed "row:spot". The game never checks them.
   notes: Record<string, NoteFlag>;
+  markedOut: Ship[];           // ships the player marked as out with a long press (notes only; still pickable)
 };
 // ● sure it's right here · ○ in the fleet but somewhere else · ✕ not in the fleet (same idea as the anchors)
 export type NoteFlag = 'exact' | 'near' | 'no';
@@ -43,6 +44,7 @@ export type Action =
   | { type: 'GAVE_UP'; answer: Ship[] }   // practice only: end the game and show the fleet
   | { type: 'SET_PER_SPOT'; perSpot: boolean } // practice only: the feedback toggle
   | { type: 'REVEAL' }                     // after a loss: lift the fog and show the fleet
+  | { type: 'TOGGLE_OUT'; ship: Ship } // long press on a ship button: mark it out, or back in
   | { type: 'NOTE'; row: number; spot: number } // flag a ship in a finished row: next flag in the cycle
   | { type: 'MOVE_SHIP'; from: number; to: number } // drag a ship in the current row: swaps with whatever is there
   | { type: 'SPYGLASS'; spot: number; ship: Ship; cost: number } // lock a right-spot ship in place
@@ -72,6 +74,7 @@ export function newGame(dateKey: string, mode: Mode, ruledOut: Ship[] = []): Gam
     locked: emptyRow(mode),
     spyglasses: 0, spyglassPoints: 0,
     notes: {},
+    markedOut: [],
   };
 }
 
@@ -141,6 +144,11 @@ export function reducer(state: GameState, action: Action): GameState {
       const current = [...state.current];
       current[slot] = null;
       return { ...state, current, cursor: slot };
+    }
+
+    case 'TOGGLE_OUT': {
+      const marked = state.markedOut ?? [];
+      return { ...state, markedOut: marked.includes(action.ship) ? marked.filter((s) => s !== action.ship) : [...marked, action.ship] };
     }
 
     case 'NOTE': {

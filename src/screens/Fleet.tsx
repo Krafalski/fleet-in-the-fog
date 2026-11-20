@@ -61,9 +61,9 @@ const HARBOR_SPOT: Record<string, { x: number; y: number }> = {
   ghost: { x: 14, y: 354 }
 };
 
-type Props = { today: string; onClose: () => void };
+type Props = { today: string; onClose: () => void; focus?: string }; // focus: creature or boat kind to show first
 
-export function Fleet({ today, onClose }: Props) {
+export function Fleet({ today, onClose, focus }: Props) {
   const [earned, setEarned] = useState<Record<string, string>>({});
   const [showAll, setShowAll] = useState(false);
   const [timesEarned, setTimesEarned] = useState<Record<string, number>>({});
@@ -80,9 +80,16 @@ export function Fleet({ today, onClose }: Props) {
   const [golden, setGolden] = useState(0);
   const [streak, setStreak] = useState(0);
   // The boat the detail card shows.
-  const [picked, setPicked] = useState<string>(BADGES[0].kind);
+  const focusIsBoat = !!focus && BADGES.some((b) => b.kind === focus);
+  const [picked, setPicked] = useState<string>(focusIsBoat ? focus! : BADGES[0].kind);
   // The creature whose note shows under the sightings grid; tap it again to close.
-  const [pickedKind, setPickedKind] = useState<string | null>(null);
+  const [pickedKind, setPickedKind] = useState<string | null>(focus && !focusIsBoat ? focus : null);
+  // Opened from a win-screen card: bring that creature's note or that boat's card into view.
+  useEffect(() => {
+    if (!focus) return;
+    const t = window.setTimeout(() => document.querySelector(focusIsBoat ? '.fleet__detail' : '.creature-note')?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 350);
+    return () => window.clearTimeout(t);
+  }, [focus, focusIsBoat]);
 
   useEffect(() => {
     let cancelled = false;
@@ -156,7 +163,7 @@ export function Fleet({ today, onClose }: Props) {
     return { kind, name: CREATURE_NAMES[kind], how, easy, hard, got: easy + hard > 0 };
   });
   const seen = (s: { easy: number; hard: number; got: boolean }) =>
-    s.got ? `Seen ${s.easy} on Easy, ${s.hard} on Hard` : 'Not yet sighted';
+    s.got ? `Seen ${s.easy} in the Bay, ${s.hard} on the Open sea` : 'Not yet sighted';
 
   const count = BADGES.filter((b) => earned[b.kind]).length;
   const pickedCreature = sightings.find((s) => s.kind === pickedKind);
@@ -207,7 +214,7 @@ export function Fleet({ today, onClose }: Props) {
         </tbody>
       </table>
       <p className="averages__note">
-        Score = guesses + hints, lower is better. {stats.you.easy.solved} Easy and {stats.you.hard.solved} Hard solved.
+        Score = guesses + hints (spyglasses count as hints), lower is better. {stats.you.easy.solved} Bay and {stats.you.hard.solved} Open sea solved.
       </p>
 
       <div className="segmented" role="group" aria-label="Fleet view">
@@ -248,9 +255,9 @@ export function Fleet({ today, onClose }: Props) {
           <header className="fleet__section-head">
             <h2>Wins by score</h2>
             <p>Each creature is a win with that score: guesses plus hints. Tap one to see it.</p>
-            <div className="fleet__key" aria-label="Counts: left is Easy, right is Hard">
-              <span><i />Easy</span>
-              <span><i className="is-hard" />Hard</span>
+            <div className="fleet__key" aria-label="Counts: left is Bay, right is Open sea">
+              <span><i />Bay</span>
+              <span><i className="is-hard" />Open sea</span>
             </div>
           </header>
           <div className="sightings" role="group" aria-label="Sightings">
@@ -357,7 +364,7 @@ export function Fleet({ today, onClose }: Props) {
             <strong>{golden > 0 ? `Golden spyglass · ${golden} left` : 'Spyglass'}</strong>
             <p>
               {golden > 0
-                ? `Free to use in Hard: spots a ship in the right place and adds nothing to your score. You earn ${GOLDEN_PER_BOAT} with every new boat.`
+                ? `Free to use on the Open sea: spots a ship in the right place and adds nothing to your score. You earn ${GOLDEN_PER_BOAT} with every new boat.`
                 : `No golden ones left, so each spyglass adds ${SPYGLASS_COST} to your score. You earn ${GOLDEN_PER_BOAT} golden ones with every new boat.`}
             </p>
           </div>

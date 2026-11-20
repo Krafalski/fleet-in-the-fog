@@ -57,7 +57,7 @@ const COLORS = ['Y', 'P', 'R', 'G', 'B', 'C'];
 export function answerLine(dateKey: string): string {
   const day = new Date(`${dateKey}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' });
   const fleet = (mode: DailyMode) => puzzleForDate(dateKey, mode).code.map((ship) => COLORS[ship]).join(', ');
-  return `${day}. Easy: ${fleet('easy')} || Hard: ${fleet('hard')}`;
+  return `${day}. Bay: ${fleet('easy')} || Open sea: ${fleet('hard')}`;
 }
 
 function run() {

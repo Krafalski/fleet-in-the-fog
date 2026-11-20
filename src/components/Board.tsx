@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { FLAG_TAP } from '../config';
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react';
-import { MODES } from '../game/game';
+import { MODES, rowsFor } from '../game/game';
 import type { Feedback, Spot } from '../game/game';
 import type { GameState } from '../game/reducer';
 import { WaveSlot } from './WaveSlot';
@@ -17,7 +17,9 @@ type Props = {
 };
 
 export function Board({ state, boatSize, onTapSlot, onMoveShip, onNote, lastRow }: Props) {
-  const { slots, maxGuesses } = MODES[state.mode];
+  const { slots } = MODES[state.mode];
+  const maxGuesses = rowsFor(state.mode, state.perSpot, state.guesses.length);
+  const baseRows = MODES[state.mode].maxGuesses;
   const currentRow = state.status === 'playing' ? state.guesses.length : -1;
   const newestRow = state.guesses.length - 1;
   const currentRef = useRef<HTMLDivElement | null>(null);
@@ -91,7 +93,7 @@ export function Board({ state, boatSize, onTapSlot, onMoveShip, onNote, lastRow 
     // The spot the next ship will land in: the one the player chose, or the first empty one.
     const nextSpot = isCurrent ? state.cursor ?? state.current.indexOf(null) : -1;
     rows.push(
-      <div key={r} ref={isCurrent ? currentRef : null} className={`row${isCurrent ? ' row--current' : ''}${lastRow && r === newestRow ? ` row--${lastRow === 'won' ? 'found' : 'missed'}` : ''}`}>
+      <div key={r} ref={isCurrent ? currentRef : null} style={{ ['--row' as string]: r }} className={`row${r >= baseRows ? ' row--extra' : ''}${isCurrent ? ' row--current' : ''}${lastRow && r === newestRow ? ` row--${lastRow === 'won' ? 'found' : 'missed'}` : ''}`}>
         <span className="row__num">{r + 1}</span>
         <div className="row__slots">
           <div
@@ -126,7 +128,9 @@ export function Board({ state, boatSize, onTapSlot, onMoveShip, onNote, lastRow 
       </div>,
     );
   }
-  return <div className="board">{rows}</div>;
+  // The end of the game: on a win the fleet turns and sails home (left, toward the harbor); on a loss it shrinks into the fog.
+  const ending = lastRow ? (lastRow === 'won' ? ' board--sail' : ' board--sink') : '';
+  return <div className={`board${ending}`}>{rows}</div>;
 }
 
 // One layer of water running the whole width of a row. The back layer sits behind the ships,

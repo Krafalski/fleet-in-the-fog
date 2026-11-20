@@ -21,8 +21,8 @@ export const MODE_LIST: DailyMode[] = ['easy', 'hard'];
 // perSpot = feedback marks sit under each ship (true) or are only totals at the end of the row (false).
 // Practice lets the player switch perSpot with a toggle; this is only its starting value.
 export const MODES: Record<Mode, { slots: number; ships: number; maxGuesses: number; perSpot: boolean; label: string }> = {
-  easy: { slots: 4, ships: 6, maxGuesses: 6, perSpot: true, label: 'Easy' },
-  hard: { slots: 5, ships: 6, maxGuesses: 10, perSpot: false, label: 'Hard' },
+  easy: { slots: 4, ships: 6, maxGuesses: 6, perSpot: true, label: 'Bay' },
+  hard: { slots: 5, ships: 6, maxGuesses: 10, perSpot: false, label: 'Open sea' },
   // Practice starts with marks under each ship (training wheels); its toggle can switch to totals.
   'practice-easy': { slots: 4, ships: 6, maxGuesses: 6, perSpot: true, label: 'Practice' },
   'practice-hard': { slots: 5, ships: 6, maxGuesses: 10, perSpot: true, label: 'Practice' },
@@ -143,6 +143,15 @@ export function nextHint(code: Ship[], ruledOut: Ship[], ships = SHIP_COUNT): Sh
     if (!code.includes(s) && !ruledOut.includes(s)) return s;
   }
   return null;
+}
+
+// How many rows (guesses) a game has. Practice Bay with "Totals only" is harder, so it gets 8 instead of 6.
+// Switching back to "Under each ship" mid-game never takes rows away once 6 guesses are logged.
+export const PRACTICE_BAY_TOTALS_ROWS = 8;
+export function rowsFor(mode: Mode, perSpot: boolean, guessesMade: number): number {
+  const base = MODES[mode].maxGuesses;
+  if (mode !== 'practice-easy') return base;
+  return !perSpot || guessesMade >= base ? PRACTICE_BAY_TOTALS_ROWS : base;
 }
 
 // ---------- score ----------

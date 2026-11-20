@@ -18,6 +18,8 @@ type View = 'game' | 'log' | 'fleet';
 export function App() {
   const today = dateKeyFor(new Date());
   const [view, setView] = useState<View>('game');
+  // Which creature or boat to show when Your fleet opens from a win-screen card.
+  const [fleetFocus, setFleetFocus] = useState<string | undefined>(undefined);
   const [dateKey, setDateKey] = useState(today); // the puzzle on screen; changes when a past day is picked
   const [mode, setMode] = useState<Mode>('easy');
   // The welcome card: only when today's puzzle hasn't been touched in either mode.
@@ -55,7 +57,7 @@ export function App() {
       />
     );
   }
-  if (view === 'fleet') return <Fleet today={today} onClose={() => setView('game')} />;
+  if (view === 'fleet') return <Fleet today={today} focus={fleetFocus} onClose={() => { setFleetFocus(undefined); setView('game'); }} />;
   return (
     <GameScreen
       key={isPractice(mode) ? mode : `${dateKey}:${mode}`}
@@ -64,8 +66,9 @@ export function App() {
       mode={mode}
       onMode={setMode}
       onOpenLog={() => setView('log')}
-      onOpenFleet={() => setView('fleet')}
+      onOpenFleet={(focus?: string) => { setFleetFocus(focus); setView('fleet'); }}
       onOpenHelp={() => setIntro('rules')}
+      onPlayDay={(day, dayMode) => { setDateKey(day); setMode(dayMode); }}
     />
   );
   }

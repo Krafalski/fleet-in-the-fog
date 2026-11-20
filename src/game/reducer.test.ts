@@ -212,3 +212,12 @@ describe('note flags', () => {
     expect(reducer(s, { type: 'REPLAY' }).notes).toEqual({});
   });
 });
+
+describe('marking ships out (long press)', () => {
+  test('toggles a ship in and out of your own marks', () => {
+    let s = reducer(newGame('2026-11-18', 'easy'), { type: 'TOGGLE_OUT', ship: 2 });
+    expect(s.markedOut).toEqual([2]);
+    s = reducer(s, { type: 'TOGGLE_OUT', ship: 2 });
+    expect(s.markedOut).toEqual([]);
+  });
+});

@@ -11,7 +11,7 @@ import { MOST_GUESSES_TRACKED, api } from '../api';
 import type { DayResult, DayStats, Outcome, RepairOffer } from '../api';
 import { BADGES, MILESTONES } from '../game/badges';
 import type { Milestone } from '../game/badges';
-import { MODES, gameScore } from '../game/game';
+import { LAUNCH_DATE, MODES, gameScore } from '../game/game';
 import type { DailyMode, Mode } from '../game/game';
 import { totalGuesses } from '../game/reducer';
 import type { GameState } from '../game/reducer';
@@ -19,6 +19,7 @@ import type { RepairStock } from '../game/repairs';
 import { RepairCard } from './RepairCard';
 import { BookShape, ButtonIcon, LighthouseShape } from './TopBar';
 import { SHARE_MARKS, shareText } from '../game/share';
+import { formatDate } from '../game/dates';
 
 type Props = {
   state: GameState;          // the finished game
@@ -26,12 +27,31 @@ type Props = {
   today: string;
   onMode: (mode: Mode) => void;
   onOpenLog: () => void;
-  onOpenFleet: () => void;
+  onOpenFleet: (focus?: string) => void; // focus: a creature or boat kind to show
+  onPlayDay?: (dateKey: string, mode: DailyMode) => void; // the Next banner: open a past day
   onReveal: () => void;      // after a loss: lift the fog and show the fleet
   onKeepTrying: () => void;  // after a loss: play the same fleet again (a Replay; it doesn't count)
 };
 
-export function DayPanel({ state, outcome, today, onMode, onOpenLog, onOpenFleet, onReveal, onKeepTrying }: Props) {
+export function DayPanel({ state, outcome, today, onMode, onOpenLog, onOpenFleet, onReveal, onKeepTrying, onPlayDay }: Props) {
+  // After a win: offer the oldest past day not played yet in this mode (the Harbor log already opens on the newest).
+  // This mode first; if it's all done, the other mode; if both are all done, a one-line celebration.
+  const [next, setNext] = useState<{ day: string; mode: DailyMode } | 'all' | null>(null);
+  const [nextClosed, setNextClosed] = useState(false);
+  useEffect(() => {
+    if (state.status !== 'won') return;
+    let live = true;
+    const here = state.mode as DailyMode;
+    const there: DailyMode = here === 'easy' ? 'hard' : 'easy';
+    const usable = (d: string | null, m: DailyMode) => d && !(d === state.dateKey && m === here) ? d : null;
+    (async () => {
+      const a = usable(await api.nextUnplayed(here, today), here);
+      const b = a ? null : usable(await api.nextUnplayed(there, today), there);
+      if (!live) return;
+      setNext(a ? { day: a, mode: here } : b ? { day: b, mode: there } : today > LAUNCH_DATE ? 'all' : null);
+    })();
+    return () => { live = false; };
+  }, [state.status, state.mode, state.dateKey, today]);
   const [day, setDay] = useState<Record<DailyMode, DayResult | undefined> | null>(null);
   const [streak, setStreak] = useState<number | null>(null);
   const [badges, setBadges] = useState<Record<string, string>>({}); // badge kind -> day earned
@@ -127,6 +147,18 @@ export function DayPanel({ state, outcome, today, onMode, onOpenLog, onOpenFleet
 
   return (
     <section className="day-panel" aria-live="polite">
+      {next && !nextClosed && onPlayDay && (
+        <div className="next-banner">
+          {next === 'all' ? (
+            <p className="next-banner__go">You've sailed every day in the log! ⚓ A new fleet comes in tomorrow.</p>
+          ) : (
+            <button type="button" className="next-banner__go" onClick={() => onPlayDay(next.day, next.mode)}>
+              Next: {formatDate(next.day, false)} · {MODES[next.mode].label} →
+            </button>
+          )}
+          <button type="button" className="next-banner__close" aria-label="Dismiss" onClick={() => setNextClosed(true)}>✕</button>
+        </div>
+      )}
       {/* After a Replay the board on screen and the game that counts can end differently: say both, plainly. */}
       {playedAgain ? (
         <>
@@ -138,25 +170,22 @@ export function DayPanel({ state, outcome, today, onMode, onOpenLog, onOpenFleet
       ) : (
         <h2>{won ? 'Fleet found' : 'The fleet slipped away'}</h2>
       )}
+      {state.dateKey !== today && (
+        <p className="day-panel__past">A past day: it counts for your creatures and averages, but not your streak.</p>
+      )}
 
       <div className="stats">
         <div className="stats__score"><strong>{won ? points : '–'}</strong><span>Score</span></div>
         <div><strong>{guesses}</strong><span>{guesses === 1 ? 'Guess' : 'Guesses'}</span></div>
-        <div><strong>{hints}</strong><span>{hints === 1 ? 'Hint' : 'Hints'}</span></div>
+        <div><strong>{hints + spyPoints}</strong><span>{hints + spyPoints === 1 ? 'Hint' : 'Hints'}</span></div>
         <div><strong>{streak ?? '–'}</strong><span>Day streak</span></div>
         <div><strong>{everyone ? everyone.average.toFixed(1) : '–'}</strong><span>Harbor score</span></div>
       </div>
-      <p className="stats__note">
-        {!spyglasses
-          ? 'Score = guesses + hints. Lower is better.'
-          : spyPoints
-            ? `Score = guesses + hints + ${spyPoints} for ${spyglasses === 1 ? 'the spyglass' : 'spyglasses'}. Lower is better.`
-            : `Score = guesses + hints. Golden spyglasses add nothing. Lower is better.`}
-      </p>
+      <p className="stats__note">Score = guesses + hints (Lookout +1, paid Spyglass +2). Lower is better.</p>
 
 
       <div className="earned">
-        <div className={`earned__slot${won ? ' is-lit' : ''}`}>
+        <div className={`earned__slot earned__slot--tap${won ? ' is-lit' : ''}`} role="button" tabIndex={0} onClick={() => onOpenFleet(creature.kind)} onKeyDown={(e) => { if (e.key === 'Enter') onOpenFleet(creature.kind); }}>
           <Creature kind={creature.kind} look={won ? 'color' : 'locked'} size={1.4} />
           <div>
             <strong>{won ? CREATURE_NAMES[creature.kind] : 'No sighting'}</strong>
@@ -166,7 +195,7 @@ export function DayPanel({ state, outcome, today, onMode, onOpenLog, onOpenFleet
         {offer ? (
           <RepairCard repairs={repairs} offer={offer} onUse={useRepair} />
         ) : newStep ? (
-          <div className="earned__slot is-lit">
+          <div className="earned__slot earned__slot--tap is-lit" role="button" tabIndex={0} onClick={() => onOpenFleet(newStep.kind)} onKeyDown={(e) => { if (e.key === 'Enter') onOpenFleet(newStep.kind); }}>
             <Boat kind={newStep.kind as BadgeKind} look={lookFor(newStep.year)} size={1.4} />
             <div>
               <strong>{newStep.name}</strong>
@@ -174,7 +203,7 @@ export function DayPanel({ state, outcome, today, onMode, onOpenLog, onOpenFleet
             </div>
           </div>
         ) : ghostToday && ghost ? (
-          <div className="earned__slot is-lit">
+          <div className="earned__slot earned__slot--tap is-lit" role="button" tabIndex={0} onClick={() => onOpenFleet(ghost.kind)} onKeyDown={(e) => { if (e.key === 'Enter') onOpenFleet(ghost.kind); }}>
             <Boat kind={ghost.kind as BadgeKind} size={1.4} />
             <div>
               <strong>{ghost.name}</strong>
@@ -182,7 +211,7 @@ export function DayPanel({ state, outcome, today, onMode, onOpenLog, onOpenFleet
             </div>
           </div>
         ) : quietStep ? (
-          <div className="earned__slot">
+          <div className="earned__slot earned__slot--tap" role="button" tabIndex={0} onClick={() => onOpenFleet(quietStep.kind)} onKeyDown={(e) => { if (e.key === 'Enter') onOpenFleet(quietStep.kind); }}>
             <Boat kind={quietStep.kind as BadgeKind} look="locked" size={1.4} />
             <div>
               <strong>{quietStep.name}</strong>
@@ -244,7 +273,7 @@ export function DayPanel({ state, outcome, today, onMode, onOpenLog, onOpenFleet
         {SHARE_MARKS.exact} right spot · {SHARE_MARKS.near} wrong spot · {SHARE_MARKS.miss} no match
       </p>
 
-      {!otherPlayed && <button type="button" className="primary-btn" onClick={() => onMode(other)}>Play {MODES[other].label}</button>}
+      {!otherPlayed && <button type="button" className="primary-btn" onClick={() => onMode(other)}>{other === 'hard' ? 'Head out to the Open sea' : 'Back to the Bay'}</button>}
 
       <div className="day-panel__more">
         <h3>Keep playing</h3>
@@ -254,7 +283,7 @@ export function DayPanel({ state, outcome, today, onMode, onOpenLog, onOpenFleet
           <button type="button" className="outline-btn with-icon" onClick={onOpenLog}><ButtonIcon><BookShape /></ButtonIcon>Past games</button>
         </div>
         <p>See your boats and sightings</p>
-        <button type="button" className="outline-btn with-icon" onClick={onOpenFleet}><ButtonIcon><LighthouseShape /></ButtonIcon>Your fleet</button>
+        <button type="button" className="outline-btn with-icon" onClick={() => onOpenFleet()}><ButtonIcon><LighthouseShape /></ButtonIcon>Your fleet</button>
       </div>
     </section>
   );
