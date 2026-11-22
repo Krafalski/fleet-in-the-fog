@@ -10,13 +10,13 @@
 // The server runs puzzleForDate() and score(), saves to Redis, and sends back only the feedback.
 // Nothing else in the app has to change.
 import { addDays } from './game/dates';
-import { BADGES, TROPHY_DAYS, yearsEarned, MYSTERY_BADGE, badgesForStreak, computeStreak } from './game/badges';
+import { BADGES, TROPHY_DAYS, yearsEarned, badgesForStreak, computeStreak, ghostFor } from './game/badges';
 import type { BoatLook } from './Boat';
 import { testGame } from './config';
-import { GOLDEN_PER_BOAT, LAUNCH_DATE, MODES, rowsFor, MODE_LIST, SPYGLASS_COST, dateKeyFor, gameScore, isPractice, isWin, nextHint, puzzleForDate, score, scoreSpots, spyglassSpot } from './game/game';
+import { GOLDEN_PER_BOAT, LAUNCH_DATE, MODES, MODE_LIST, SPYGLASS_COST, dateKeyFor, gameScore, isPractice, isWin, nextHint, puzzleForDate, score, scoreSpots, spyglassSpot } from './game/game';
 import type { DailyMode, Feedback, Mode, Ship } from './game/game';
-import { newGame, totalGuesses } from './game/reducer';
-import { DAYS_PER_REPAIR, daysCovered, findGap, pickRepairs, repairsEarned } from './game/repairs';
+import { boardRows, newGame, totalGuesses } from './game/reducer';
+import { daysCovered, daysToNextRepair, findGap, pickRepairs, repairsEarned } from './game/repairs';
 import type { RepairStock } from './game/repairs';
 import type { GameState, Status } from './game/reducer';
 
@@ -78,6 +78,9 @@ export type GameApi = {
   // The player's saved game for this day and mode, or a fresh one.
   // For practice, dateKey is ignored: it returns the practice game in progress, or a new random one.
   loadGame(dateKey: string, mode: Mode): Promise<GameState>;
+  // Optional: the saved game right away, with no waiting. A local store can do this; a server can't,
+  // so GameScreen falls back to a fresh board until loadGame answers.
+  peekGame?(dateKey: string, mode: Mode): GameState;
   // Call after every change so the player can leave and come back.
   saveGame(state: GameState): Promise<void>;
   // Score one guess. `answer` is only sent once the game is over.
@@ -140,7 +143,7 @@ const RESULTS_KEY = `${STORE}:results`; // { '2026-11-15:easy': DayResult }
 const BADGES_KEY = `${STORE}:badges`;   // { paper: '2026-11-15' }
 const LOOKS_KEY = `${STORE}:looks`;     // { paper: 'year2' }
 const REPAIRS_KEY = `${STORE}:repairs`; // { usedOnes: 1, usedThrees: 0, days: ['2026-11-15'] }
-// Test games start with a few repairs, so the repair flow can be tried without playing 30 days.
+// Test games start with a few repairs, so the repair flow can be tried without playing for weeks.
 const TEST_REPAIRS: RepairStock = testGame ? { ones: 2, threes: 2 } : { ones: 0, threes: 0 };
 // Testing (?add-repairs=2, ?add-long-repairs=1): extra repairs, saved on top of the earned ones.
 const REPAIRS_ADDED_KEY = `${STORE}:repairs-added`;
@@ -213,7 +216,7 @@ function repairState(results: Record<string, DayResult>, today: string) {
   const offer: RepairOffer | null = gap && cost
     ? { missedDays: gap.length, cost, streakAfter: computeStreak(solved, today, new Set([...used.days, ...gap])) }
     : null;
-  return { repairs, nextRepairIn: DAYS_PER_REPAIR - (daysPlayed % DAYS_PER_REPAIR), offer, gap, used };
+  return { repairs, nextRepairIn: daysToNextRepair(daysPlayed), offer, gap, used };
 }
 
 // Hands out any streak boats the player's streak has reached but they do not have yet.
@@ -245,6 +248,10 @@ function awardStreakBadges(streak: number, today: string, extra: string[] = []):
 
 export const localApi: GameApi = {
   async loadGame(dateKey, mode) {
+    return localApi.peekGame!(dateKey, mode);
+  },
+
+  peekGame(dateKey, mode) {
     if (isPractice(mode)) {
       const saved = read<Partial<GameState> | null>(gameKey(dateKey, mode), null);
       const fresh = newGame(saved?.dateKey ?? newPracticeKey(), mode);
@@ -266,7 +273,7 @@ export const localApi: GameApi = {
     const guessesMade = state.guesses.length + 1;
     const status: Status = isWin(feedback, state.mode)
       ? 'won'
-      : guessesMade >= rowsFor(state.mode, state.perSpot, state.guesses.length)
+      : guessesMade >= boardRows({ ...state, status: 'playing' })
         ? 'lost'
         : 'playing';
     // Every ship right, every spot wrong: an albatross, every time.
@@ -332,7 +339,7 @@ export const localApi: GameApi = {
     write(RESULTS_KEY, results);
 
     const streak = streakFrom(results, today);
-    return { streak, newBadges: awardStreakBadges(streak, today, state.status === 'lost' ? [MYSTERY_BADGE] : []) };
+    return { streak, newBadges: awardStreakBadges(streak, today, state.status === 'lost' ? [ghostFor(state.mode as DailyMode)] : []) };
   },
 
   async loadResults(dateKeys, mode) {

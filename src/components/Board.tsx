@@ -4,8 +4,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { FLAG_TAP } from '../config';
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react';
-import { MODES, rowsFor } from '../game/game';
+import { MODES } from '../game/game';
 import type { Feedback, Spot } from '../game/game';
+import { boardRows, tryOfRow } from '../game/reducer';
 import type { GameState } from '../game/reducer';
 import { WaveSlot } from './WaveSlot';
 
@@ -18,11 +19,20 @@ type Props = {
 
 export function Board({ state, boatSize, onTapSlot, onMoveShip, onNote, lastRow }: Props) {
   const { slots } = MODES[state.mode];
-  const maxGuesses = rowsFor(state.mode, state.perSpot, state.guesses.length);
+  const maxGuesses = boardRows(state);
+  const tries = state.tries ?? [];
+  const latestTry = tries.length;
   const baseRows = MODES[state.mode].maxGuesses;
   const currentRow = state.status === 'playing' ? state.guesses.length : -1;
   const newestRow = state.guesses.length - 1;
   const currentRef = useRef<HTMLDivElement | null>(null);
+  // Rows that go away (Practice Bay switching back to "Under each ship") fade out first instead of vanishing.
+  const [shownRows, setShownRows] = useState(maxGuesses);
+  useEffect(() => {
+    if (maxGuesses >= shownRows) { setShownRows(maxGuesses); return; }
+    const timer = window.setTimeout(() => setShownRows(maxGuesses), 300);
+    return () => window.clearTimeout(timer);
+  }, [maxGuesses]);
 
   useEffect(() => {
     currentRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -85,15 +95,20 @@ export function Board({ state, boatSize, onTapSlot, onMoveShip, onNote, lastRow 
   const perSpotRow = (r: number) => state.perSpot && r < state.guesses.length && !!state.feedback[r]?.spots;
 
   const rows = [];
-  for (let r = 0; r < maxGuesses; r++) {
+  for (let r = 0; r < Math.max(maxGuesses, shownRows); r++) {
+    const leaving = r >= maxGuesses;
     const isPast = r < state.guesses.length;
     const isCurrent = r === currentRow;
     const ships = isPast ? state.guesses[r] : isCurrent ? state.current : new Array(slots).fill(null);
     const tone = isCurrent ? 'current' : isPast ? 'past' : 'empty';
     // The spot the next ship will land in: the one the player chose, or the first empty one.
     const nextSpot = isCurrent ? state.cursor ?? state.current.indexOf(null) : -1;
+    // Keep trying: a line where each new try starts; rows from earlier tries are greyed (see app.css).
+    const tryIndex = tries.indexOf(r);
+    if (tryIndex !== -1) rows.push(<div key={`try-${r}`} className="try-divider" role="separator"><span>Try {tryIndex + 2}</span></div>);
+    const earlier = latestTry > 0 && tryOfRow(state, r) < latestTry;
     rows.push(
-      <div key={r} ref={isCurrent ? currentRef : null} style={{ ['--row' as string]: r }} className={`row${r >= baseRows ? ' row--extra' : ''}${isCurrent ? ' row--current' : ''}${lastRow && r === newestRow ? ` row--${lastRow === 'won' ? 'found' : 'missed'}` : ''}`}>
+      <div key={r} ref={isCurrent ? currentRef : null} style={{ ['--row' as string]: r }} className={`row${r >= baseRows && !tries.length ? ' row--extra' : ''}${earlier ? ' row--earlier' : ''}${leaving ? ' row--leaving' : ''}${isCurrent ? ' row--current' : ''}${lastRow && r === newestRow ? ` row--${lastRow === 'won' ? 'found' : 'missed'}` : ''}`}>
         <span className="row__num">{r + 1}</span>
         <div className="row__slots">
           <div

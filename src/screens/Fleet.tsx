@@ -16,7 +16,7 @@ import type { RepairOffer, Stats } from '../api';
 import { RepairCard } from '../components/RepairCard';
 import { CloseButton } from '../components/TopBar';
 import { showAllColorways } from '../config';
-import { BADGES, MYSTERY_BADGE } from '../game/badges';
+import { BADGES, GHOST_DARK, MYSTERY_BADGE } from '../game/badges';
 import type { Badge } from '../game/badges';
 import { formatDate } from '../game/dates';
 import { GOLDEN_PER_BOAT, MODES, MODE_LIST, SPYGLASS_COST } from '../game/game';
@@ -29,6 +29,11 @@ const NO_STATS: Stats = {
   sightings: { easy: {}, hard: {} },
 };
 // The colorways in the order they unlock: earned once, twice, three times.
+// The ghost ship's two looks, and the loss that brings each one.
+const GHOST_LOOKS: { look: BoatLook; label: string; key: string }[] = [
+  { look: 'color', label: 'Lost in the Bay', key: MYSTERY_BADGE },
+  { look: 'night', label: 'Lost on the Open sea', key: GHOST_DARK },
+];
 const COLORWAYS: { look: BoatLook; label: string }[] = [
   { look: 'color', label: 'First year' },
   { look: 'year2', label: 'Second year' },
@@ -118,14 +123,20 @@ export function Fleet({ today, onClose, focus }: Props) {
     setRepairsUsed((n) => n + 1);
   }
 
-  // How many colorways a boat has unlocked (0 to 3), and the one to draw it in.
-  const unlocked = (kind: string) => Math.min(COLORWAYS.length, timesEarned[kind] ?? 0);
+  // The looks a boat can show. Streak boats unlock a colorway per year; the ghost ship has a light look
+  // (from a Bay loss) and a dark one (from an Open sea loss), each unlocked on its own.
+  const ghostLooks = GHOST_LOOKS.filter((g) => showAllColorways || earned[g.key]);
+  const looksFor = (kind: string) => (kind === MYSTERY_BADGE ? ghostLooks : COLORWAYS.slice(0, Math.min(COLORWAYS.length, timesEarned[kind] ?? 0)));
+  const unlocked = (kind: string) => looksFor(kind).length;
   const lookOf = (kind: string): BoatLook => {
-    const n = unlocked(kind);
-    if (n === 0) return 'locked';
-    const chosen = COLORWAYS.findIndex((c) => c.look === looks[kind]);
-    return chosen >= 0 && chosen < n ? COLORWAYS[chosen].look : 'color';
+    const options = looksFor(kind);
+    if (options.length === 0) return 'locked';
+    return options.find((c) => c.look === looks[kind])?.look ?? options[0].look;
   };
+  function chooseLook(kind: string, look: BoatLook) {
+    setLooks((old) => ({ ...old, [kind]: look }));
+    api.saveBoatLook(kind, look);
+  }
 
   // One tap shows the boat's details. A quick second tap switches it to the next unlocked colorway.
   // With none or one unlocked there is nothing to switch to.
@@ -134,24 +145,25 @@ export function Fleet({ today, onClose, focus }: Props) {
     const isDouble = lastTap.current.kind === kind && now - lastTap.current.at < DOUBLE_TAP_MS;
     lastTap.current = { kind, at: isDouble ? 0 : now };
     setPicked(kind);
-    const n = unlocked(kind);
-    if (!isDouble || n < 2) return;
-    const at = COLORWAYS.findIndex((c) => c.look === lookOf(kind));
-    const next = COLORWAYS[(at + 1) % n].look;
-    setLooks((old) => ({ ...old, [kind]: next }));
-    api.saveBoatLook(kind, next);
+    const options = looksFor(kind);
+    if (!isDouble || options.length < 2) return;
+    const at = options.findIndex((c) => c.look === lookOf(kind));
+    chooseLook(kind, options[(at + 1) % options.length].look);
   }
 
   // The mystery boat keeps its secret until it is earned.
+  const earnedOn = (kind: string) => (kind === MYSTERY_BADGE
+    ? [earned[MYSTERY_BADGE], earned[GHOST_DARK]].filter(Boolean).sort()[0]
+    : earned[kind]);
   const describe = (badge: Badge) => {
-    const got = Boolean(earned[badge.kind]);
+    const got = Boolean(earnedOn(badge.kind));
     const secret = badge.kind === MYSTERY_BADGE && !got;
     return {
       got,
       name: secret ? 'Mystery boat' : badge.name,
       how: secret ? 'Mystery' : badge.how,
       note: secret ? 'Drifts in when you least expect it.' : badge.note,
-      status: got ? `Earned ${formatDate(earned[badge.kind], false)}` : 'Not yet in your harbor',
+      status: got ? `Earned ${formatDate(earnedOn(badge.kind)!, false)}` : 'Not yet in your harbor',
     };
   };
 
@@ -165,11 +177,11 @@ export function Fleet({ today, onClose, focus }: Props) {
   const seen = (s: { easy: number; hard: number; got: boolean }) =>
     s.got ? `Seen ${s.easy} in the Bay, ${s.hard} on the Open sea` : 'Not yet sighted';
 
-  const count = BADGES.filter((b) => earned[b.kind]).length;
+  const count = BADGES.filter((b) => earnedOn(b.kind)).length;
   const pickedCreature = sightings.find((s) => s.kind === pickedKind);
   const current = BADGES.find((b) => b.kind === picked) ?? BADGES[0];
   const detail = describe(current);
-  const colorways = showAllColorways ? COLORWAYS : COLORWAYS.slice(0, unlocked(current.kind));
+  const colorways = current.kind === MYSTERY_BADGE ? ghostLooks : showAllColorways ? COLORWAYS : looksFor(current.kind);
 
   // The Fleet Admiral cup: at the top of the harbor view once earned, last on the screen until then.
   const trophyCard = (
@@ -328,13 +340,14 @@ export function Fleet({ today, onClose, focus }: Props) {
                   <p className={`fleet__status${detail.got ? ' is-earned' : ''}`}>{detail.status}</p>
                 </div>
               </div>
-              {unlocked(current.kind) > 1 && <p className="fleet__tip">Double tap the boat in the harbor to change its colors.</p>}
+              {unlocked(current.kind) > 1 && <p className="fleet__tip">Tap a look below (or double tap the boat in the harbor) to choose which one sails in your harbor.</p>}
               {colorways.length > 0 && (
                 <div className="fleet__years">
                   {colorways.map((c) => (
-                    <div key={c.look} className={c.look === lookOf(current.kind) ? 'is-on' : undefined}>
+                    <button key={c.look} type="button" className={c.look === lookOf(current.kind) ? 'is-on' : undefined}
+                      aria-pressed={c.look === lookOf(current.kind)} onClick={() => chooseLook(current.kind, c.look)}>
                       <Boat kind={current.kind as BadgeKind} look={c.look} /><span>{c.label}</span>
-                    </div>
+                    </button>
                   ))}
                 </div>
               )}

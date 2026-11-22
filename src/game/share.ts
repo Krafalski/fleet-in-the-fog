@@ -1,16 +1,17 @@
 // The spoiler-free result players can paste into the day's Reddit thread.
 // It shows how the guesses went, never which ships were in the fleet.
-//   🚢 right ship, right spot    ⚓️ right ship, wrong spot    🌊 no match
+//   ⬛ right ship, right spot    ⬜ right ship, wrong spot    🟦 not in the fleet    🚢🚢🚢🚢 the winning row
+// Squares are all the same width, so the rows line up as a neat grid on every phone.
 // Easy (and Practice "under each ship") shows a mark for each spot, in order.
 // Hard shows totals for each row, anchors first, so the order gives nothing away.
 import { MODES, gameScore } from './game';
 import type { Feedback, Mode } from './game';
 import { formatDate } from './dates';
 
-// The anchor needs \uFE0F ("show as emoji"), or some apps draw it as a small text symbol and the rows go uneven.
-export const SHARE_MARKS = { exact: '🚢', near: '\u2693\uFE0F', miss: '🌊' } as const;
+export const SHARE_MARKS = { exact: '⬛', near: '⬜', miss: '🟦', found: '🚢' } as const;
 
 export function shareRow(feedback: Feedback, slots: number, perSpot: boolean): string {
+  if (feedback.exact === slots) return SHARE_MARKS.found.repeat(slots); // the fleet found: a row of ships
   if (perSpot && feedback.spots) return feedback.spots.map((s) => SHARE_MARKS[s]).join('');
   const misses = Math.max(0, slots - feedback.exact - feedback.near);
   return SHARE_MARKS.exact.repeat(feedback.exact) + SHARE_MARKS.near.repeat(feedback.near) + SHARE_MARKS.miss.repeat(misses);

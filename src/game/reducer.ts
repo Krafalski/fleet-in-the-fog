@@ -1,7 +1,7 @@
 // Everything the player can do on the board, as one state object and a list of actions.
 // The reducer never knows the answer. Feedback arrives from outside (see api.ts),
 // which is what lets the answer live on the server later.
-import { MODES } from './game';
+import { MODES, rowsFor } from './game';
 import type { Feedback, Mode, Ship } from './game';
 
 export type Status = 'playing' | 'won' | 'lost';
@@ -28,19 +28,42 @@ export type GameState = {
   // The player's own note flags on finished rows, keyed "row:spot". The game never checks them.
   notes: Record<string, NoteFlag>;
   markedOut: Ship[];           // ships the player marked as out with a long press (notes only; still pickable)
+  // Keep trying after a loss: the row each new try starts on. Every try adds KEEP_TRYING_ROWS rows under the old ones.
+  tries?: number[];
 };
+
+// Rows added each time the player taps Keep trying after a loss.
+export const KEEP_TRYING_ROWS = 10;
+
+// How many rows this board has right now: the mode's rows, plus 10 for every Keep trying.
+export function boardRows(state: GameState): number {
+  const tries = state.tries ?? [];
+  // The first try's rows are settled once it ends, so measure them at the row where try 2 began.
+  const first = tries.length
+    ? rowsFor(state.mode, state.perSpot, tries[0], false)
+    : rowsFor(state.mode, state.perSpot, state.guesses.length, state.status === 'playing');
+  return first + KEEP_TRYING_ROWS * tries.length;
+}
+
+// The try a row belongs to: 0 for the first try, 1 after the first Keep trying, and so on.
+export function tryOfRow(state: GameState, row: number): number {
+  return (state.tries ?? []).filter((start) => row >= start).length;
+}
 // ● sure it's right here · ○ in the fleet but somewhere else · ✕ not in the fleet (same idea as the anchors)
 export type NoteFlag = 'exact' | 'near' | 'no';
 const NOTE_CYCLE: (NoteFlag | undefined)[] = [undefined, 'exact', 'near', 'no'];
 
 export type Action =
-  | { type: 'PICK_SHIP'; ship: Ship }
+  | { type: 'PICK_SHIP'; ship: Ship; advance?: boolean } // advance (keyboard): the chosen spot moves one to the right, like typing
   | { type: 'TAP_SLOT'; slot: number }
   | { type: 'CLEAR_ROW' }
+  | { type: 'BACKSPACE' }                  // keyboard: clear the chosen spot, or else take off the rightmost ship (spyglass ships stay)
+  | { type: 'MOVE_CURSOR'; by: -1 | 1 }    // keyboard arrows: choose the spot to the left or right (skips spyglass ships)
   // carry: start the next row with the ships that were in the right spot (Easy and per-spot Practice only).
   | { type: 'GUESS_SCORED'; guess: Ship[]; feedback: Feedback; status: Status; answer: Ship[] | null; carry?: boolean }
   | { type: 'HINT_GIVEN'; ship: Ship }
   | { type: 'REPLAY' }
+  | { type: 'KEEP_TRYING' }                 // after a loss: 10 more rows under the old ones, same puzzle
   | { type: 'GAVE_UP'; answer: Ship[] }   // practice only: end the game and show the fleet
   | { type: 'SET_PER_SPOT'; perSpot: boolean } // practice only: the feedback toggle
   | { type: 'REVEAL' }                     // after a loss: lift the fog and show the fleet
@@ -109,6 +132,20 @@ export function reducer(state: GameState, action: Action): GameState {
       earlierGuesses: totalGuesses(state),
       revealed: false,
       notes: {}, // a new round starts with a clean board
+      tries: [],
+    };
+  }
+
+  // Keep trying: only after a loss with the fleet still hidden. Every guess and note flag stays,
+  // and 10 new rows open under them. The result already saved for the day doesn't change.
+  if (action.type === 'KEEP_TRYING') {
+    if (state.status !== 'lost' || state.revealed) return state;
+    return {
+      ...state,
+      status: 'playing', answer: null,
+      current: startRow(state),
+      cursor: null,
+      tries: [...(state.tries ?? []), state.guesses.length],
     };
   }
 
@@ -120,7 +157,7 @@ export function reducer(state: GameState, action: Action): GameState {
 
   if (state.status !== 'playing') return state; // the board is frozen once the game is over
 
-  if (action.type === 'GAVE_UP') return { ...state, status: 'lost', answer: action.answer, cursor: null };
+  if (action.type === 'GAVE_UP') return { ...state, status: 'lost', answer: action.answer, cursor: null, revealed: true };
 
   switch (action.type) {
     case 'PICK_SHIP': {
@@ -131,6 +168,10 @@ export function reducer(state: GameState, action: Action): GameState {
       if (isLocked(state, slot)) return state; // a spyglass ship can't be replaced
       const current = [...state.current];
       current[slot] = action.ship;
+      if (action.advance && state.cursor !== null) {
+        // Keyboard, with a spot chosen by the arrows: move on to the next spot to the right (skipping spyglass ships).
+        for (let i = slot + 1; i < current.length; i++) if (!isLocked(state, i)) return { ...state, current, cursor: i };
+      }
       return { ...state, current, cursor: null };
     }
 
@@ -144,6 +185,33 @@ export function reducer(state: GameState, action: Action): GameState {
       const current = [...state.current];
       current[slot] = null;
       return { ...state, current, cursor: slot };
+    }
+
+    case 'MOVE_CURSOR': {
+      const n = state.current.length;
+      const empty = state.current.indexOf(null);
+      // Start from the highlighted spot: the chosen one, or else the next empty one. A full row starts from its edge.
+      const at = state.cursor ?? (empty !== -1 ? empty : action.by === 1 ? -1 : n);
+      for (let i = at + action.by; i >= 0 && i < n; i += action.by) {
+        if (!isLocked(state, i)) return { ...state, cursor: i };
+      }
+      return state;
+    }
+
+    case 'BACKSPACE': {
+      if (state.cursor !== null) {
+        if (isLocked(state, state.cursor)) return state;
+        const current = [...state.current];
+        current[state.cursor] = null;
+        return { ...state, current };
+      }
+      for (let i = state.current.length - 1; i >= 0; i--) {
+        if (state.current[i] === null || isLocked(state, i)) continue;
+        const current = [...state.current];
+        current[i] = null;
+        return { ...state, current, cursor: null };
+      }
+      return state;
     }
 
     case 'TOGGLE_OUT': {

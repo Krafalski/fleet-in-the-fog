@@ -146,12 +146,15 @@ export function nextHint(code: Ship[], ruledOut: Ship[], ships = SHIP_COUNT): Sh
 }
 
 // How many rows (guesses) a game has. Practice Bay with "Totals only" is harder, so it gets 8 instead of 6.
-// Switching back to "Under each ship" mid-game never takes rows away once 6 guesses are logged.
+// Switching back to "Under each ship" mid-game never takes away rows the player still needs:
+// past 6 guesses, or at exactly 6 while the game is still going, it stays at 8.
+// A game played "Under each ship" the whole way ends at 6, win or lose.
 export const PRACTICE_BAY_TOTALS_ROWS = 8;
-export function rowsFor(mode: Mode, perSpot: boolean, guessesMade: number): number {
+export function rowsFor(mode: Mode, perSpot: boolean, guessesMade: number, playing = false): number {
   const base = MODES[mode].maxGuesses;
   if (mode !== 'practice-easy') return base;
-  return !perSpot || guessesMade >= base ? PRACTICE_BAY_TOTALS_ROWS : base;
+  const keepWide = guessesMade > base || (playing && guessesMade >= base);
+  return !perSpot || keepWide ? PRACTICE_BAY_TOTALS_ROWS : base;
 }
 
 // ---------- score ----------

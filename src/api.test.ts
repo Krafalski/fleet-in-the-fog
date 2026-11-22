@@ -76,6 +76,13 @@ describe('streak boats', () => {
     expect(out.streak).toBe(4);
   });
 
+  test('a Bay loss brings the light ghost, an Open sea loss the dark one', async () => {
+    expect((await api.recordResult(finished('lost', 'easy'), TODAY)).newBadges).toEqual(['ghost']);
+    expect((await api.recordResult(finished('lost', 'hard'), TODAY)).newBadges).toEqual(['ghostDark']);
+    const badges = saved<Record<string, string>>('badges', {});
+    expect([badges.ghost, badges.ghostDark]).toEqual([TODAY, TODAY]);
+  });
+
   test('winning both modes on one day counts once, and awards nothing twice', async () => {
     seed(2);
     await winToday('easy');
@@ -140,15 +147,15 @@ describe('the Fleet Admiral cup', () => {
 
 describe('streak repairs', () => {
   test('missed yesterday and the day before: a repair is offered for 2 days', async () => {
-    seed(70, [1, 2]); // 68 days played: two repairs earned (one every 30 days), each mends 1 day
+    seed(70, [1, 2]); // 68 days played: repairs from days 2, 20 and 45, each mends 1 day
     const { repairOffer, repairs } = await api.loadProgress(TODAY);
-    expect(repairs.ones).toBe(2);
+    expect(repairs.ones).toBe(3);
     expect(repairOffer!.missedDays).toBe(2);
     expect(repairOffer!.streakAfter).toBe(68);
   });
 
   test('only one repair for a 2-day gap: no offer', async () => {
-    seed(40, [1, 2]); // 38 days played: one repair, not enough
+    seed(12, [1, 2]); // 10 days played: one repair (day 2), not enough
     expect((await api.loadProgress(TODAY)).repairOffer).toBe(null);
   });
 
@@ -216,6 +223,32 @@ describe('the albatross', () => {
     const out = await api.submitGuess(newGame(key, 'practice-easy'), guess);
     expect(out.albatross).toBe(0);
     expect((await api.loadProgress(TODAY)).albatrossCount).toBe(0);
+  });
+});
+
+describe('practice Bay rows', () => {
+  // Plays practice-1 under each ship: five guesses that miss, then the given last guess.
+  async function playSix(last: 'right' | 'wrong') {
+    const { puzzleForDate } = await import('./game/game');
+    const key = 'practice-1';
+    const { code } = puzzleForDate(key, 'practice-easy');
+    const miss = code.map((ship) => (ship + 1) % 5);
+    let state = newGame(key, 'practice-easy');
+    for (let i = 0; i < 6; i++) {
+      const guess = i === 5 && last === 'right' ? code : miss;
+      const out = await api.submitGuess(state, guess);
+      state = { ...state, guesses: [...state.guesses, guess], status: out.status };
+    }
+    return state;
+  }
+  test('a 6th wrong guess under each ship ends the game (no 8 rows)', async () => {
+    expect((await playSix('wrong')).status).toBe('lost');
+  });
+  test('winning on the 6th guess is a win, and the board stays at 6 rows', async () => {
+    const { rowsFor } = await import('./game/game');
+    const state = await playSix('right');
+    expect(state.status).toBe('won');
+    expect(rowsFor('practice-easy', true, state.guesses.length, false)).toBe(6);
   });
 });
 

@@ -17,7 +17,7 @@ export function FogCard({ state, boatSize }: { state: GameState; boatSize: numbe
   const randomShip = (): Ship => Math.floor(Math.random() * Math.min(ships, SHIP_COUNT));
   const over = state.status !== 'playing';
   // A daily loss keeps the fleet hidden until the player taps Reveal the fleet (they may want to keep trying).
-  const hidden = state.status === 'lost' && !state.revealed && !isPractice(state.mode);
+  const hidden = state.status === 'lost' && !state.revealed;
   const answer = hidden ? null : state.answer;
   const lifting = over && !hidden;
 

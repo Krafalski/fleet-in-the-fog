@@ -3,6 +3,7 @@
 //   <Boat kind="junk" />                    game ship, full color
 //   <Boat kind="ghost" look="locked" />     badge boat, greyed out
 //   <Boat kind="paper" look="year2" size={2} />
+import { useRef } from 'react';
 import type { CSSProperties, ReactElement } from 'react';
 
 export type ShipKind = 'fisher' | 'junk' | 'mailboat' | 'schooner' | 'tug' | 'yacht';
@@ -10,7 +11,8 @@ export type BadgeKind = 'paper' | 'rowboat' | 'canoe' | 'raft' | 'gondola' | 'ho
 // Spare boats: drawn and ready, not used by the game yet.
 export type SpareKind = 'barge' | 'catamaran' | 'dhow' | 'lifeboat' | 'outrigger' | 'powerboat' | 'carrier' | 'cruise' | 'kayak';
 export type BoatKind = ShipKind | BadgeKind | SpareKind;
-export type BoatLook = 'color' | 'locked' | 'year2' | 'year3';
+// 'night' is the ghost ship's Open sea look: black sails, white eyes, a charcoal hull.
+export type BoatLook = 'color' | 'locked' | 'year2' | 'year3' | 'night';
 
 // Game ships in tray order (alphabetical, each a different first letter).
 export const SHIP_KINDS: ShipKind[] = ['fisher', 'junk', 'mailboat', 'schooner', 'tug', 'yacht'];
@@ -154,7 +156,17 @@ const LOOKS: Record<BoatLook, CSSProperties> = {
   locked: { filter: 'grayscale(1)', opacity: 0.3 },        // not earned yet
   year2: { filter: 'invert(1) hue-rotate(180deg)' },       // second time around
   year3: { filter: 'grayscale(1) contrast(1.15)' },        // third time around
+  night: {},                                                // the dark ghost ship (its own drawing)
 };
+
+// The ghost ship, after an Open sea loss: same shape, dark sails and hull, white eyes.
+const GHOST_NIGHT: ReactElement = (
+  <><line x1="15.5" y1="5" x2="15.5" y2="19" stroke="#22302E" strokeWidth="1" strokeLinecap="round" /><line x1="27" y1="7" x2="27" y2="19" stroke="#22302E" strokeWidth="1" strokeLinecap="round" /><path d="M10.5 3.5 L13 7 H18 L20.5 3.5 V15 Q19.25 17.5 18 15 Q16.75 12.5 15.5 15 Q14.25 17.5 13 15 Q11.75 12.5 10.5 15 Z" fill="#22302E" stroke="#22302E" strokeWidth="0.6" strokeLinejoin="round" /><ellipse cx="13.6" cy="10.4" rx="0.9" ry="1.3" fill="#B8FFE0" /><ellipse cx="17.4" cy="10.4" rx="0.9" ry="1.3" fill="#B8FFE0" /><path d="M23 6.5 L25 9.2 H29 L31 6.5 V14.5 Q30 16.5 29 14.5 Q28 12.5 27 14.5 Q26 16.5 25 14.5 Q24 12.5 23 14.5 Z" fill="#22302E" stroke="#22302E" strokeWidth="0.6" strokeLinejoin="round" /><ellipse cx="25.7" cy="11.4" rx="0.7" ry="1" fill="#B8FFE0" /><ellipse cx="28.3" cy="11.4" rx="0.7" ry="1" fill="#B8FFE0" /><path d="M3 19 H37 L33 28 H7 Z" fill="#3E4A47" /><line x1="8" y1="23" x2="33" y2="23" stroke="#9FD8C4" strokeWidth="1" strokeLinecap="round" strokeDasharray="3 2" /></>
+);
+
+// Each ghost ship gets its own glow filter id (two SVGs sharing one id can break in some browsers).
+let ghostCount = 0;
+
 
 export function Boat({ kind, look = 'color', size = 1, label }:
   { kind: BoatKind; look?: BoatLook; size?: number; label?: string }) {
@@ -168,7 +180,25 @@ export function Boat({ kind, look = 'color', size = 1, label }:
       aria-label={label}
       aria-hidden={label ? undefined : true}
     >
-      {DRAWINGS[kind]}
+      {kind === 'ghost' && look !== 'locked' ? <GhostGlow night={look === 'night'} /> : DRAWINGS[kind]}
     </svg>
+  );
+}
+
+// The ghost ship with its slow green glow: a blurred copy underneath that breathes in and out
+// (only its opacity moves, so it stays smooth on phones), and the ship drawn crisp on top.
+function GhostGlow({ night }: { night: boolean }) {
+  const id = useRef(`ghost-glow-${++ghostCount}`).current;
+  const drawing = night ? GHOST_NIGHT : DRAWINGS.ghost;
+  return (
+    <>
+      <defs>
+        <filter id={id} x="-30%" y="-30%" width="160%" height="160%">
+          <feDropShadow dx="0" dy="0" stdDeviation={night ? 1.4 : 1.6} floodColor={night ? '#7FE0C0' : '#5FD3AE'} floodOpacity={night ? 0.9 : 1} />
+        </filter>
+      </defs>
+      <g className="ghost-glow" filter={`url(#${id})`}>{drawing}</g>
+      <g className={night ? undefined : 'ghost-light'}>{drawing}</g>
+    </>
   );
 }

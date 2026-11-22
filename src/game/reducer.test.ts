@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
-import { alreadyGuessed, canLogGuess, newGame, reducer, totalGuesses } from './reducer';
+import { alreadyGuessed, boardRows, canLogGuess, newGame, reducer, totalGuesses, tryOfRow } from './reducer';
+import type { Ship } from './game';
 import type { Action, GameState } from './reducer';
 
 function play(state: GameState, ...actions: Action[]): GameState {
@@ -219,5 +220,84 @@ describe('marking ships out (long press)', () => {
     expect(s.markedOut).toEqual([2]);
     s = reducer(s, { type: 'TOGGLE_OUT', ship: 2 });
     expect(s.markedOut).toEqual([]);
+  });
+});
+
+describe('keep trying after a loss', () => {
+  // A Bay game lost after 6 guesses, with a note flag on the first row.
+  function lostBay(): GameState {
+    const row = [0, 0, 0, 0] as Ship[];
+    const feedback = { exact: 0, near: 0, spots: ['none', 'none', 'none', 'none'] } as unknown as GameState['feedback'][number];
+    return { ...newGame('2027-06-15', 'easy'), status: 'lost', guesses: Array(6).fill(row), feedback: Array(6).fill(feedback), notes: { '0:1': 'no' } };
+  }
+
+  test('adds 10 rows under the old ones and keeps guesses and flags', () => {
+    const s = reducer(lostBay(), { type: 'KEEP_TRYING' });
+    expect(s.status).toBe('playing');
+    expect(s.guesses.length).toBe(6);
+    expect(s.notes['0:1']).toBe('no');
+    expect(s.tries).toEqual([6]);
+    expect(boardRows(s)).toBe(16);
+    expect(tryOfRow(s, 5)).toBe(0);
+    expect(tryOfRow(s, 6)).toBe(1);
+  });
+
+  test('a second Keep trying adds 10 more', () => {
+    let s = reducer(lostBay(), { type: 'KEEP_TRYING' });
+    s = { ...s, status: 'lost', guesses: [...s.guesses, ...Array(10).fill(s.guesses[0])] };
+    s = reducer(s, { type: 'KEEP_TRYING' });
+    expect(s.tries).toEqual([6, 16]);
+    expect(boardRows(s)).toBe(26);
+  });
+
+  test('not after the fleet was revealed, and not on a win', () => {
+    expect(reducer({ ...lostBay(), revealed: true }, { type: 'KEEP_TRYING' }).status).toBe('lost');
+    expect(reducer({ ...lostBay(), status: 'won' }, { type: 'KEEP_TRYING' }).status).toBe('won');
+  });
+
+  test('Practice Bay under each ship: 6 rows, then 16 after Keep trying (not 18)', () => {
+    const s = reducer({ ...lostBay(), mode: 'practice-easy', perSpot: true }, { type: 'KEEP_TRYING' });
+    expect(boardRows(s)).toBe(16);
+  });
+});
+
+describe('keyboard backspace', () => {
+  test('takes off the rightmost ship and skips spyglass ships', () => {
+    let s = play(start(), { type: 'PICK_SHIP', ship: 1 }, { type: 'PICK_SHIP', ship: 2 }, { type: 'PICK_SHIP', ship: 3 });
+    s = { ...s, locked: [null, null, 3, null] };
+    s = reducer(s, { type: 'BACKSPACE' });
+    expect(s.current).toEqual([1, null, 3, null]);
+    s = reducer(s, { type: 'BACKSPACE' });
+    expect(s.current).toEqual([null, null, 3, null]);
+    expect(reducer(s, { type: 'BACKSPACE' }).current).toEqual([null, null, 3, null]);
+  });
+});
+
+describe('keyboard arrows', () => {
+  test('→ and ← move the chosen spot, skipping spyglass ships; a letter there replaces the ship', () => {
+    let s = play(start(), { type: 'PICK_SHIP', ship: 1 }, { type: 'PICK_SHIP', ship: 2 }); // next empty spot is 2
+    s = { ...s, locked: [null, null, null, null] };
+    s = reducer(s, { type: 'MOVE_CURSOR', by: -1 });
+    expect(s.cursor).toBe(1);
+    s = reducer(s, { type: 'PICK_SHIP', ship: 4 });
+    expect(s.current).toEqual([1, 4, null, null]);
+    s = { ...reducer(s, { type: 'MOVE_CURSOR', by: 1 }), locked: [null, null, null, 3], current: [1, 4, null, 3] };
+    expect(s.cursor).toBe(3);
+    s = reducer({ ...s, cursor: 1 }, { type: 'MOVE_CURSOR', by: 1 });
+    expect(s.cursor).toBe(2);
+    expect(reducer(s, { type: 'MOVE_CURSOR', by: 1 }).cursor).toBe(2); // spot 3 is a spyglass ship
+  });
+  test('typing into a chosen spot moves the highlight one to the right; tapping does not', () => {
+    const full = play(start(), ...[0, 1, 2, 3].map((ship) => ({ type: 'PICK_SHIP', ship } as Action)));
+    const keyed = reducer({ ...full, cursor: 1 }, { type: 'PICK_SHIP', ship: 4, advance: true });
+    expect([keyed.current, keyed.cursor]).toEqual([[0, 4, 2, 3], 2]);
+    const tapped = reducer({ ...full, cursor: 1 }, { type: 'PICK_SHIP', ship: 4 });
+    expect(tapped.cursor).toBe(null);
+  });
+  test('Backspace clears the chosen spot and keeps it chosen', () => {
+    let s = play(start(), { type: 'PICK_SHIP', ship: 1 }, { type: 'PICK_SHIP', ship: 2 }, { type: 'PICK_SHIP', ship: 3 });
+    s = reducer({ ...s, cursor: 0 }, { type: 'BACKSPACE' });
+    expect(s.current).toEqual([null, 2, 3, null]);
+    expect(s.cursor).toBe(0);
   });
 });

@@ -1,11 +1,14 @@
 // Streak repair rules. Plain functions, no React and no storage.
 //
-// - Every 30 days played earns one repair.
+// - Repairs come on days played 2 and 20, then 45, 75, 105… (every 30 days, halfway between the monthly boats),
+//   so they never land on the same day as a new streak boat.
 // - The first three repairs ever earned mend one missed day each. Every repair after that mends up to three.
 // - Repairs can be combined to mend a longer gap, but the whole gap has to be covered.
 // - A mended day does not add to the streak. The streak picks up where it was before the gap.
 import { addDays } from './dates';
 
+export const FIRST_REPAIR_DAYS = [2, 20]; // early ones, so new players see a repair in the first weeks
+export const MONTHLY_REPAIR_FROM = 45;     // then one every 30 days from here
 export const DAYS_PER_REPAIR = 30;
 export const SMALL_REPAIRS = 3;     // how many of the first repairs are the one-day kind
 export const BIG_REPAIR_DAYS = 3;   // days a later repair can mend
@@ -15,8 +18,23 @@ export type RepairStock = { ones: number; threes: number };
 
 // Every repair a player has earned so far, used or not.
 export function repairsEarned(daysPlayed: number): RepairStock {
-  const earned = Math.floor(daysPlayed / DAYS_PER_REPAIR);
+  const earned = repairCount(daysPlayed);
   return { ones: Math.min(earned, SMALL_REPAIRS), threes: Math.max(0, earned - SMALL_REPAIRS) };
+}
+
+// How many repairs `daysPlayed` days have earned.
+export function repairCount(daysPlayed: number): number {
+  const early = FIRST_REPAIR_DAYS.filter((d) => daysPlayed >= d).length;
+  const monthly = daysPlayed >= MONTHLY_REPAIR_FROM ? Math.floor((daysPlayed - MONTHLY_REPAIR_FROM) / DAYS_PER_REPAIR) + 1 : 0;
+  return early + monthly;
+}
+
+// How many more days of play until the next repair.
+export function daysToNextRepair(daysPlayed: number): number {
+  const early = FIRST_REPAIR_DAYS.find((d) => d > daysPlayed);
+  if (early !== undefined) return early - daysPlayed;
+  if (daysPlayed < MONTHLY_REPAIR_FROM) return MONTHLY_REPAIR_FROM - daysPlayed;
+  return DAYS_PER_REPAIR - ((daysPlayed - MONTHLY_REPAIR_FROM) % DAYS_PER_REPAIR);
 }
 
 // The most days a pile of repairs can mend.

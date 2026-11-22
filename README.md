@@ -97,7 +97,7 @@ Ships are numbers 0-5 everywhere in the logic (0 fisher, 1 junk, 2 mailboat, 3 s
 - Tap a ship and it drops into the next empty spot. Tap a spot to empty it; the next ship goes there.
 - Replay clears the board on the same puzzle. Guesses already made still count, and only the first finished game is recorded.
 - The puzzle changes at NEW_GAME_TIME in NEW_GAME_ZONE (config.ts). It ships as midnight UTC.
-- Streak repairs (game/repairs.ts): one per 30 days played. The first three mend one missed day each, later ones up to three. They combine for longer gaps. Mended days do not add to the streak. Test games start with 2 one-day and 2 three-day repairs.
+- Streak repairs (game/repairs.ts): on days played 2 and 20, then 45, 75, 105… (every 30 days, between the monthly boats). The first three mend one missed day each, later ones up to three. They combine for longer gaps. Mended days do not add to the streak. Test games start with 2 one-day and 2 three-day repairs.
 - A hint greys out the lowest-numbered ship that isn't in the code.
 - A streak counts days you solved either puzzle on its own day (badges.ts, api.ts).
 - The mystery boat arrives the first time a fleet slips away.

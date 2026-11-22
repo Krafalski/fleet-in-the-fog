@@ -174,7 +174,12 @@ describe('rows', () => {
     const { rowsFor } = await import('./game');
     expect(rowsFor('practice-easy', false, 0)).toBe(8);
     expect(rowsFor('practice-easy', true, 3)).toBe(6);
-    expect(rowsFor('practice-easy', true, 6)).toBe(8);
+    // Under each ship the whole way: 6 rows, even after the 6th guess (won or lost).
+    expect(rowsFor('practice-easy', true, 6)).toBe(6);
+    expect(rowsFor('practice-easy', true, 6, false)).toBe(6);
+    // Switched from Totals only with 6 guesses used and still playing: keep 8 so the game isn't stuck.
+    expect(rowsFor('practice-easy', true, 6, true)).toBe(8);
+    expect(rowsFor('practice-easy', true, 7)).toBe(8);
     expect(rowsFor('easy', false, 0)).toBe(6);
     expect(rowsFor('practice-hard', true, 0)).toBe(10);
   });

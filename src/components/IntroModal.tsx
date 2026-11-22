@@ -62,8 +62,10 @@ export function IntroModal({ today, onPlay, startOn = 'front' }: { today: string
               </li>
               <li>Each row is another try at the same fleet.</li>
               <li><b>Hints</b> cost points (lower scores are better): the <b>Lookout</b> rules out a ship that isn't in the fleet (+1), and on the Open sea the <b>Spyglass</b> finds a ship in the right spot (+2, or free with a golden one).</li>
-              <li><b>Notes</b> (optional): tap a ship in a finished row to raise your own flag: <span className="intro__flag"><NoteFlag kind="exact" size={0.7} /></span> right here, <span className="intro__flag"><NoteFlag kind="near" size={0.7} /></span> somewhere else, <span className="intro__flag"><NoteFlag kind="no" size={0.7} /></span> not in the fleet. They're just for you.</li>
+              <li><b>Notes</b> (optional): tap a ship in a finished row to raise your own flag: <span className="intro__flag"><NoteFlag kind="exact" size={0.7} /></span> right here, <span className="intro__flag"><NoteFlag kind="near" size={0.7} /></span> somewhere else, <span className="intro__flag"><NoteFlag kind="no" size={0.7} /></span> not in the fleet. They're just for you. You can also <b>press and hold</b> a ship in the tray to grey it out when you think it isn't in the fleet (it stays pickable).</li>
               <li>Solve it in {MODES.easy.maxGuesses} guesses ({MODES.hard.maxGuesses} on the Open sea). A new fleet comes in every day.</li>
+              <li>Out of guesses? <b>Keep trying</b> adds 10 more rows under your old ones. Your first result is the one that counts, so it's a safe way to learn.</li>
+              <li className="intro__keys">On a keyboard: <kbd>Y</kbd> <kbd>P</kbd> <kbd>R</kbd> <kbd>G</kbd> <kbd>B</kbd> <kbd>C</kbd> place ships (the first letter of each color), <kbd>←</kbd> <kbd>→</kbd> choose a spot (a letter there swaps the ship), <kbd>Enter</kbd> logs the guess, <kbd>Backspace</kbd> clears a spot.</li>
             </ol>
             {startOn === 'rules' ? (
               // Opened from the bottle during a game: one button, straight back to the game.

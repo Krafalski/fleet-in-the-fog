@@ -33,6 +33,10 @@ export const BADGES: Badge[] = [
 
 // The mystery boat: earned the first time a fleet slips away.
 export const MYSTERY_BADGE = 'ghost';
+// The ghost ship has two looks: the light one comes with a Bay loss, the dark one with an Open sea loss.
+// Both live in the same harbor spot; the player picks which one shows.
+export const GHOST_DARK = 'ghostDark';
+export const ghostFor = (mode: 'easy' | 'hard') => (mode === 'hard' ? GHOST_DARK : MYSTERY_BADGE);
 
 // Every streak badge a streak of this many days has earned.
 export function badgesForStreak(streak: number): string[] {

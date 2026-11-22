@@ -18,16 +18,20 @@ import { SHIP_KINDS, SHIP_NAMES } from '../Boat';
 import { TopBar } from '../components/TopBar';
 import { testGame } from '../config';
 import { formatDate } from '../game/dates';
-import { MODES, MODE_LIST, SPYGLASS_COST, gameScore, isPractice, rowsFor } from '../game/game';
+import { MODES, MODE_LIST, SPYGLASS_COST, gameScore, isPractice } from '../game/game';
 import { FLAG_TAP } from '../config';
 import type { DailyMode, Mode, Ship, PracticeMode } from '../game/game';
-import { alreadyGuessed, canLogGuess, newGame, reducer, totalGuesses } from '../game/reducer';
+import { alreadyGuessed, boardRows, canLogGuess, newGame, reducer, totalGuesses } from '../game/reducer';
 import type { Action } from '../game/reducer';
 
 // Boats shrink a little as rows get longer.
 const BOAT_SIZE: Record<Mode, number> = { easy: 1.25, hard: 0.95, 'practice-easy': 1.25, 'practice-hard': 0.95 };
 // The moment a game ends: pegs light up, the fog lifts, a banner shows, then the day's results take over.
-const ENDING_MS = 1900; // the sail-home / sink animation; then the result popup
+// The end animation, then the result popup. A win turns quickly (0.25s) and sails slowly home (1.8s);
+// a loss shrinks into the fog faster.
+const ENDING_MS = { won: 2700, lost: 1900 } as const;
+// Keyboard letters, in ship order: Yellow fisher, Purple junk, Red mailboat, Green schooner, Blue tug, Coral yacht.
+const SHIP_KEYS = ['y', 'p', 'r', 'g', 'b', 'c'];
 // How long "Already played" stays on the Log guess button.
 const ALREADY_PLAYED_MS = 2000;
 // Two taps on Replay closer together than this skip the "are you sure" question.
@@ -46,7 +50,12 @@ type Props = {
 
 // App gives this component a `key` of date + mode, so it starts fresh whenever either changes.
 export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFleet, onOpenHelp, onPlayDay }: Props) {
-  const [state, dispatch] = useReducer(reducer, newGame(dateKey, mode));
+  // Start from the saved game when the store can hand it over right away, so switching modes
+  // never flashes an empty board before the saved one loads.
+  const [initial] = useState(() => api.peekGame?.(dateKey, mode) ?? newGame(dateKey, mode));
+  const [state, dispatch] = useReducer(reducer, initial);
+  // A game that was already finished when this screen opened shows its results without the slide-in.
+  const [overAtOpen] = useState(() => initial.status !== 'playing');
   const [loaded, setLoaded] = useState(false);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [askReplay, setAskReplay] = useState(false);
@@ -87,7 +96,8 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
 
   const over = state.status !== 'playing';
   const replaying = state.rounds > 1 && !practice; // the whole board goes grey during a replay, so it's clear it doesn't count
-  const maxGuesses = rowsFor(mode, state.perSpot, state.guesses.length);
+  const maxGuesses = boardRows(state);
+  const trying = (state.tries ?? []).length > 0; // Keep trying: the board turns a little grey
 
   async function logGuess() {
     if (!canLogGuess(state)) return;
@@ -107,7 +117,7 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
     dispatch(action);
     if (result.status !== 'playing') {
       setEnding(true);
-      endTimer.current = window.setTimeout(() => { setEnding(false); setEndPopup(true); }, ENDING_MS);
+      endTimer.current = window.setTimeout(() => { setEnding(false); setEndPopup(true); }, ENDING_MS[result.status === 'won' ? 'won' : 'lost']);
       if (!practice) setOutcome(await api.recordResult(reducer(state, action), today));
     }
   }
@@ -192,6 +202,49 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
     dispatch({ type: 'REPLAY' });
   }
 
+  // Keyboard play (desktop): Y P R G B C place ships, ← → choose a spot, Enter logs a full row,
+  // Backspace/Delete clears the chosen spot (or takes the last ship off).
+  // Ignored while any popup is open, once the game is over, with Cmd/Ctrl/Alt held, or while typing in a field.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.metaKey || e.ctrlKey || e.altKey || state.status !== 'playing' || ending) return;
+      const target = e.target as HTMLElement | null;
+      const typing = target && (target.tagName === 'TEXTAREA' || target.isContentEditable
+        || (target.tagName === 'INPUT' && !['checkbox', 'radio', 'button', 'range'].includes((target as HTMLInputElement).type)));
+      if (typing) return; // switches and buttons don't count: after tapping one, the letters still play
+      if (document.querySelector('[aria-modal="true"], [role="alertdialog"]')) return;
+      const key = e.key.toLowerCase();
+      const ship = SHIP_KEYS.indexOf(key);
+      if (ship !== -1 && ship < MODES[mode].ships) {
+        e.preventDefault();
+        dispatch({ type: 'PICK_SHIP', ship: ship as Ship, advance: true });
+      } else if (e.key === 'Enter') {
+        if (!canLogGuess(state)) return;
+        e.preventDefault();
+        logGuess();
+      } else if (e.key === 'Backspace' || e.key === 'Delete') {
+        e.preventDefault();
+        dispatch({ type: 'BACKSPACE' });
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        e.preventDefault();
+        dispatch({ type: 'MOVE_CURSOR', by: e.key === 'ArrowLeft' ? -1 : 1 });
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
+
+  // After a loss: 10 more rows under the old ones. Guesses and note flags stay; the day's result doesn't change.
+  function keepTrying() {
+    setEndPopup(false);
+    setAlbatross(null);
+    setSpyNote('');
+    setShowGuesses(false);
+    setEnding(false);
+    window.clearTimeout(endTimer.current);
+    dispatch({ type: 'KEEP_TRYING' });
+  }
+
   // Practice: a new random fleet. The feedback toggle carries over.
   function newPractice() {
     setEndPopup(false);
@@ -244,15 +297,16 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
       <div className={`notes-modal__card end-card end-card--${state.status}`} onClick={(e) => e.stopPropagation()}>
         <button type="button" className="end-card__x" aria-label="Close" onClick={closePopup}>✕</button>
         <h2>{state.status === 'won' ? (replaying ? 'Replay solved!' : 'Fleet found!') : 'The fleet slipped away'}</h2>
-        <p>{state.status === 'won' ? scoreLine(practice ? state.guesses.length : shown) : practice ? 'Out of guesses. This one got away.' : 'Out of guesses. The fleet is still hidden in the fog.'}</p>
+        <p>{state.status === 'won' ? scoreLine(practice ? state.guesses.length : shown) : state.revealed ? 'Out of guesses. This one got away.' : 'Out of guesses. The fleet is still hidden in the fog. Keep trying adds 10 more rows.'}</p>
         <div className="end-card__buttons">
-          {practice ? (
-            <button type="button" className="primary-btn primary-btn--small" onClick={() => { closePopup(); newPractice(); }}>New game</button>
-          ) : state.status === 'lost' && !state.revealed ? (
+          {state.status === 'lost' && !state.revealed ? (
             <>
-              <button type="button" className="primary-btn primary-btn--small" onClick={() => { closePopup(); replay(); }}>Keep trying</button>
+              <button type="button" className="primary-btn primary-btn--small" onClick={keepTrying}>Keep trying</button>
               <button type="button" className="outline-btn" onClick={() => { closePopup(); dispatch({ type: 'REVEAL' }); }}>Reveal the fleet</button>
+              {practice && <button type="button" className="outline-btn" onClick={() => { closePopup(); newPractice(); }}>New game</button>}
             </>
+          ) : practice ? (
+            <button type="button" className="primary-btn primary-btn--small" onClick={() => { closePopup(); newPractice(); }}>New game</button>
           ) : (
             <button type="button" className="primary-btn primary-btn--small" onClick={closePopup}>See the day's results</button>
           )}
@@ -343,7 +397,7 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
   );
 
   return (
-    <main className={`screen game game--${mode}${testGame ? ' is-test' : ''}${replaying ? ' is-replay' : ''}`}>
+    <main className={`screen game game--${mode}${testGame ? ' is-test' : ''}${replaying ? ' is-replay' : ''}${trying ? ' is-trying' : ''}`}>
       {endModal}
       <TopBar onOpenHelp={onOpenHelp} subtitle={practice ? 'Practice waters' : `Harbor log · ${formatDate(dateKey)}`} onOpenLog={onOpenLog} onOpenFleet={onOpenFleet} />
 
@@ -368,19 +422,20 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
       </p>
 
 
-      {practice && (
-        <div className="feedback-toggle" role="group" aria-label="Practice size">
-          <span>Size</span>
-          {(['practice-easy', 'practice-hard'] as const).map((size) => (
-            <button key={size} type="button" className={size === mode ? 'is-on' : undefined} aria-pressed={size === mode} onClick={() => openPractice(size)}>
-              {size === 'practice-easy' ? 'Bay' : 'Open sea'} · {MODES[size].slots}
-            </button>
-          ))}
+      {/* Practice puts its two sizes beside the fog card, so the board starts at the same height as in the daily games. */}
+      {practice ? (
+        <div className="fog-row" role="group" aria-label="Practice size">
+          <button type="button" className={`size-side${mode === 'practice-easy' ? ' is-on' : ''}`} aria-pressed={mode === 'practice-easy'} onClick={() => openPractice('practice-easy')}>
+            <span>Bay</span><small>{MODES['practice-easy'].slots} ships</small>
+          </button>
+          <FogCard state={state} boatSize={BOAT_SIZE[mode]} />
+          <button type="button" className={`size-side${mode === 'practice-hard' ? ' is-on' : ''}`} aria-pressed={mode === 'practice-hard'} onClick={() => openPractice('practice-hard')}>
+            <span>Open sea</span><small>{MODES['practice-hard'].slots} ships</small>
+          </button>
         </div>
+      ) : (
+        <FogCard state={state} boatSize={BOAT_SIZE[mode]} />
       )}
-
-
-      <FogCard state={state} boatSize={BOAT_SIZE[mode]} />
       {albatross !== null && (
         <div className="albatross-note" role="status">
           <Scenery kind="albatross" size={0.9} />
@@ -396,6 +451,8 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
         <>
           {ending ? (
             <button type="button" className="primary-btn actions--holding" aria-hidden="true" tabIndex={-1}>Log guess</button>
+          ) : state.status === 'lost' && !state.revealed ? (
+            <button type="button" className="primary-btn" onClick={keepTrying}>Keep trying · 10 more rows</button>
           ) : over ? (
             <button type="button" className="primary-btn" onClick={newPractice}>
               {state.status === 'won' ? `Solved in ${state.guesses.length}! · New game` : 'New game'}
@@ -431,8 +488,11 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
                   </button>
                 )}
                 {!over && spyglassButton}
+                {state.status === 'lost' && !state.revealed && (
+                  <button type="button" className="outline-btn" onClick={() => dispatch({ type: 'REVEAL' })}>Reveal the fleet</button>
+                )}
                 <button type="button" className="outline-btn" onClick={tapReplay}>Replay</button>
-                {!over && <button type="button" className="outline-btn" onClick={newPractice}>New game</button>}
+                {state.status !== 'won' && !(over && state.revealed) && <button type="button" className="outline-btn" onClick={newPractice}>New game</button>}
               </div>
               {!over && <button type="button" className="link-btn" onClick={() => setAskGiveUp(true)}>Give up</button>}
             </div>
@@ -458,8 +518,8 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
             </section>
           ) : (
             <>
-              <DayPanel state={state} outcome={outcome} today={today} onMode={onMode} onOpenLog={onOpenLog} onOpenFleet={onOpenFleet}
-                onReveal={() => dispatch({ type: 'REVEAL' })} onKeepTrying={replay} onPlayDay={onPlayDay} />
+              <DayPanel state={state} outcome={outcome} today={today} still={overAtOpen && outcome === null} onMode={onMode} onOpenLog={onOpenLog} onOpenFleet={onOpenFleet}
+                onReveal={() => dispatch({ type: 'REVEAL' })} onKeepTrying={keepTrying} onPlayDay={onPlayDay} />
               <button type="button" className="outline-btn" onClick={() => { setAskReplay(false); setShowGuesses(true); }}>Show my guesses</button>
             </>
           )}

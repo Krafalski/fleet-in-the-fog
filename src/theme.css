@@ -2,54 +2,57 @@
   /* fonts: change these two lines to change every font in the game */
   --font-body: Inter, system-ui, sans-serif;
   --font-display: Fraunces, Georgia, serif;
-  /* Fleet in the Fog palette */
+  /* Fleet in the Fog palette: "Coastal" (dusk blue, powder blue, light cyan, jet black, a little burnt peach) */
   /* page and panels */
-  --fog: #E3E6DF;          /* page background */
-  --paper: #F4EFE2;        /* cards and panels */
-  --water: #D7E3E1;        /* harbor / fleet background */
-  --ink: #2F4F4F;          /* main text, dark buttons */
-  --ink-soft: #3E5551;     /* secondary text */
+  --fog: #EAF4F6;          /* page background */
+  --paper: #F7FBFC;        /* cards and panels */
+  --water: #D3E6EE;        /* harbor / fleet background */
+  --ink: #3D5A80;          /* main text, dark buttons (dusk blue) */
+  --ink-soft: #33496A;     /* secondary text */
   /* text and lines */
-  --ink-muted: #4A6460;    /* small labels, row numbers */
-  --on-ink: #F6F1E3;       /* text on dark buttons */
-  --line: #D5CFBD;         /* thin dividers */
-  --line-dashed: #C5C9C0;  /* dashed outline of empty slots */
-  --outline: #6F837D;      /* outline buttons */
-  --outline-soft: #9AA8A3; /* pill buttons */
-  --shadow: rgba(47, 79, 79, 0.25);
+  --ink-muted: #4C6383;    /* small labels, row numbers */
+  --on-ink: #F2FAFC;       /* text on dark buttons */
+  --line: #C9DCE4;         /* thin dividers */
+  --line-dashed: #B6CCD8;  /* dashed outline of empty slots */
+  --outline: #6E89A8;      /* outline buttons */
+  --outline-soft: #98B0C6; /* pill buttons */
+  --shadow: rgba(41, 50, 65, 0.25);
   /* more backgrounds */
-  --panel: #EEF0EA;        /* fog card, end-of-day panel */
-  --track: #D6DAD2;        /* behind the Easy / Hard switch */
-  --disabled: #B9C2BD;     /* greyed-out button */
-  --ruled-out: #DCDFD8;    /* a ship the hint crossed off */
-  --day-empty: #EAE7DD;    /* a log day with no game */
-  --row-current: #F7EFD6;  /* the row being played */
-  --sea-current: #E9F0EC;  /* water behind the row being played */
-  --picked: rgba(247, 233, 194, 0.9);            /* tapped boat or creature in the fleet */
-  --lantern-glow: rgba(217, 164, 65, 0.45);      /* glow round earned things */
-  --lantern-glow-row: rgba(217, 164, 65, 0.4);   /* glow round the current row */
-  --backdrop: rgba(47, 79, 79, 0.35); /* behind the welcome card */
+  --panel: #E6F1F5;        /* fog card, end-of-day panel */
+  --track: #D3E3EB;        /* behind the Bay / Open sea switch */
+  --disabled: #B7C9D6;     /* greyed-out button */
+  --ruled-out: #DCE6EB;    /* a ship the hint crossed off */
+  --day-empty: #E4EEF2;    /* a log day with no game */
+  --row-current: #FFF6DC;  /* the row being played */
+  --sea-current: #EFF8FA;  /* water behind the row being played */
+  --picked: rgba(255, 243, 204, 0.95);           /* tapped boat or creature in the fleet */
+  --lantern-glow: rgba(240, 180, 41, 0.5);       /* glow round earned things */
+  --lantern-glow-row: rgba(240, 180, 41, 0.45);  /* glow round the current row */
+  --backdrop: rgba(41, 50, 65, 0.35); /* behind the welcome card */
   /* fog */
-  --cloud: #fff; --fog-spot: #F8F9F6; --fog-glow: rgba(255, 255, 255, 0.9);
+  --cloud: #fff; --fog-spot: #F8FBFC; --fog-glow: rgba(255, 255, 255, 0.9);
   /* feedback pegs */
-  --peg-miss: #CFC8B4; --peg-blank: #D9D4C6;
+  --peg-miss: #C3D3DC; --peg-blank: #D4E0E6;
   /* test game (the burgundy board) */
   --replay-board: #8E9693;  /* test board during a replay: a soft mid grey instead of near-black */
-  --test-board: #6B1F2A; --test-peg: #8E4651; --test-light: #F4EFE2;
+  --test-board: #6B1F2A; --test-peg: #8E4651; --test-light: #F7FBFC;
   /* highlight */
-  --lantern: #D9A441;      /* current-row glow */
-  --lantern-pale: #F7E9C2; /* selected / earned backgrounds */
-  --lantern-deep: #B98222; /* selected outlines */
-  --gold-text: #7A4E0E;    /* gold text that passes contrast */
+  /* gold: only for rewards and the current row. Brighter and cleaner than before, so it reads as treasure. */
+  --lantern: #F0B429;      /* current-row glow */
+  --lantern-pale: #FFF3CC; /* selected / earned backgrounds */
+  --lantern-deep: #C98A06; /* selected outlines */
+  --gold-text: #7A5200;    /* gold text that passes contrast */
+  /* burnt peach: only for warnings, like "Already played" */
+  --peach: #EE6C4D; --peach-ink: #3B140A; --peach-text: #B8452A;
   /* boat paints */
   --hull-dark: #3E4A47; --hull-black: #2F3B3A; --soot: #1F2A2A;
   --rust: #B5543B; --cream: #F1E6CC; --cream-deep: #E8D9B0; --sailcloth: #FBF8EF;
   --sand: #E3B98F; --teal: #3F6E68; --teal-pale: #9DBDB6; --navy: #2E4A6B;
   --plum: #6B5577; --wood: #8A5A3C;
   /* wave slots */
-  --wave-current-back: #B3D0D3; --wave-current-front: #7FA9AF;
-  --wave-past-back: #C6D8D9;    --wave-past-front: #A3C0C3;
-  --wave-empty-back: #DDE5E2;   --wave-empty-front: #D0DBD8;
+  --wave-current-back: #A9CCDD; --wave-current-front: #6FA3BE;
+  --wave-past-back: #C2DAE5;    --wave-past-front: #9CC0D1;
+  --wave-empty-back: #DFEBF0;   --wave-empty-front: #D0E1E8;
 }
 
 /* Boat looks, for use with the SVG sprite (fleet-boats.svg) */
