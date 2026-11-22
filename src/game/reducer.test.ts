@@ -242,6 +242,15 @@ describe('keep trying after a loss', () => {
     expect(tryOfRow(s, 6)).toBe(1);
   });
 
+  test('with "keep ships in the right spot" on, the new row starts with the last row\'s right-spot ships', () => {
+    const lost = lostBay();
+    const last = lost.guesses.length - 1;
+    lost.guesses = [...lost.guesses.slice(0, last), [1, 2, 3, 4] as Ship[]];
+    lost.feedback = [...lost.feedback.slice(0, last), { exact: 2, near: 0, spots: ['exact', 'miss', 'exact', 'miss'] } as GameState['feedback'][number]];
+    expect(reducer(lost, { type: 'KEEP_TRYING', carry: true }).current).toEqual([1, null, 3, null]);
+    expect(reducer(lost, { type: 'KEEP_TRYING' }).current).toEqual([null, null, null, null]);
+  });
+
   test('a second Keep trying adds 10 more', () => {
     let s = reducer(lostBay(), { type: 'KEEP_TRYING' });
     s = { ...s, status: 'lost', guesses: [...s.guesses, ...Array(10).fill(s.guesses[0])] };

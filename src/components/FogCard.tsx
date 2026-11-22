@@ -2,7 +2,7 @@
 // they part and fade, and the answer fades in underneath.
 import { useEffect, useState } from 'react';
 import { Boat, SHIP_KINDS, SHIP_NAMES } from '../Boat';
-import { MODES, SHIP_COUNT, isPractice } from '../game/game';
+import { MODES, SHIP_COUNT } from '../game/game';
 import type { Ship } from '../game/game';
 import type { GameState } from '../game/reducer';
 

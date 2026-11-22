@@ -242,7 +242,7 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
     setShowGuesses(false);
     setEnding(false);
     window.clearTimeout(endTimer.current);
-    dispatch({ type: 'KEEP_TRYING' });
+    dispatch({ type: 'KEEP_TRYING', carry: carry && state.perSpot });
   }
 
   // Practice: a new random fleet. The feedback toggle carries over.

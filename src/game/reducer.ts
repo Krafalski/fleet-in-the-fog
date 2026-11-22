@@ -63,7 +63,7 @@ export type Action =
   | { type: 'GUESS_SCORED'; guess: Ship[]; feedback: Feedback; status: Status; answer: Ship[] | null; carry?: boolean }
   | { type: 'HINT_GIVEN'; ship: Ship }
   | { type: 'REPLAY' }
-  | { type: 'KEEP_TRYING' }                 // after a loss: 10 more rows under the old ones, same puzzle
+  | { type: 'KEEP_TRYING'; carry?: boolean } // after a loss: 10 more rows under the old ones, same puzzle (carry: like GUESS_SCORED)
   | { type: 'GAVE_UP'; answer: Ship[] }   // practice only: end the game and show the fleet
   | { type: 'SET_PER_SPOT'; perSpot: boolean } // practice only: the feedback toggle
   | { type: 'REVEAL' }                     // after a loss: lift the fog and show the fleet
@@ -140,10 +140,15 @@ export function reducer(state: GameState, action: Action): GameState {
   // and 10 new rows open under them. The result already saved for the day doesn't change.
   if (action.type === 'KEEP_TRYING') {
     if (state.status !== 'lost' || state.revealed) return state;
+    // With "keep ships in the right spot" on, the first new row starts with the last row's right-spot ships, like any other row.
+    const last = state.guesses.length - 1;
+    const spots = state.feedback[last]?.spots;
     return {
       ...state,
       status: 'playing', answer: null,
-      current: startRow(state),
+      current: action.carry && spots
+        ? state.guesses[last].map((ship, i) => (spots[i] === 'exact' || isLocked(state, i) ? ship : null))
+        : startRow(state),
       cursor: null,
       tries: [...(state.tries ?? []), state.guesses.length],
     };
