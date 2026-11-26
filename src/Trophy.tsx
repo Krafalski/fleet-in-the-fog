@@ -1,5 +1,5 @@
 // The final award: a gold cup filled to the brim with harbor water, and the little paper boat
-// from day one floating on top. Earned the day after every streak boat finishes its third year.
+// from day one floating on top. Earned once every streak boat is in all four looks (Bay, Open Sea, gold, jewels).
 //   <Trophy size={1.5} />            full color
 //   <Trophy size={1.5} locked />     grey outline, not earned yet
 import type { CSSProperties } from 'react';

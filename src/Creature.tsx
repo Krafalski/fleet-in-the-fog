@@ -4,10 +4,10 @@
 //   <Creature kind="seal" look="locked" size={2} />
 import type { CSSProperties, ReactElement } from 'react';
 
-export type CreatureKind = 'seal' | 'dolphin' | 'shark' | 'whale' | 'manta' | 'octopus' | 'nautilus' | 'squid' | 'beluga' | 'nessie' | 'turtle' | 'medic';
+export type CreatureKind = 'seal' | 'dolphin' | 'shark' | 'whale' | 'manta' | 'octopus' | 'nautilus' | 'squid' | 'beluga' | 'nessie' | 'turtle' | 'medic' | 'crab' | 'hermit' | 'barnacle' | 'starfish' | 'sanddollar' | 'lobster' | 'bluelobster' | 'walrus' | 'pinkwalrus';
 export type CreatureLook = 'color' | 'locked';
 
-export const CREATURE_KINDS: CreatureKind[] = ['seal', 'dolphin', 'shark', 'whale', 'manta', 'octopus', 'nautilus', 'squid', 'beluga', 'nessie', 'turtle', 'medic'];
+export const CREATURE_KINDS: CreatureKind[] = ['seal', 'dolphin', 'shark', 'whale', 'manta', 'octopus', 'nautilus', 'squid', 'beluga', 'nessie', 'turtle', 'medic', 'crab', 'hermit', 'barnacle', 'starfish', 'sanddollar', 'lobster', 'bluelobster', 'walrus', 'pinkwalrus'];
 export const CREATURE_NAMES: Record<CreatureKind, string> = {
   seal: 'Seal',
   dolphin: 'Dolphin',
@@ -21,11 +21,20 @@ export const CREATURE_NAMES: Record<CreatureKind, string> = {
   nessie: 'Loch Ness monster',
   turtle: 'Sea turtle',
   medic: 'Rescue dolphin', // streak repair
+  crab: 'Crab',            // the Bay took more guesses than the Open Sea
+  hermit: 'Hermit crab',   // a win after Keep trying
+  barnacle: 'Barnacle',    // lost the first Keep trying too: sticking with it, no matter what
+  starfish: 'Starfish',    // 5 Bay wins in Past games
+  sanddollar: 'Sand dollar', // 5 Open Sea wins in Past games
+  lobster: 'Red lobster',  // an albatross on the first Bay guess
+  bluelobster: 'Blue lobster', // an albatross on the first Open Sea guess
+  walrus: 'Walrus',        // a Bay win on the very last row
+  pinkwalrus: 'Pink walrus', // an Open Sea win on the very last row
 };
 
 // Which creature you sight for a winning score of N (score = guesses + hints). Commonest first, rarest last.
 // The seal covers a score of 8 or more. Shown as a 4 x 2 grid in this order.
-// Not on the ladder: squid and nautilus (spares), nessie (saved for a mystery).
+// Not on the ladder: squid (spare), nessie (saved for a mystery); nautilus, crab and hermit crab are their own awards.
 export const CREATURE_LADDER: { score: number; kind: CreatureKind }[] = [
   { score: 8, kind: 'seal' },
   { score: 7, kind: 'turtle' },
@@ -55,6 +64,175 @@ const DRAWINGS: Record<CreatureKind, ReactElement> = {
   ),
   octopus: (
     <><path d="M13.5 16 Q7 18.5 5 23.5 Q4 27.2 6.4 26.7 M16.5 17 Q14 22 13.2 25.5 Q12.7 28 10.4 27.2 M20 17 V25 Q20.3 27.8 23.3 26.8 M23.5 17 Q26 22 26.8 25.5 Q27.3 28 29.6 27.2 M26.5 16 Q33 18.5 35 23.5 Q36 27.2 33.6 26.7" fill="none" stroke="#B5543B" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" /><path d="M11.5 17.5 Q11.5 4.5 20 4.5 Q28.5 4.5 28.5 17.5 Z" fill="#B5543B" /><circle cx="17" cy="12.5" r="1.9" fill="#F1E6CC" /><circle cx="24" cy="12.5" r="1.9" fill="#F1E6CC" /><circle cx="17.6" cy="12.7" r="0.9" fill="#1F2A2A" /><circle cx="24.6" cy="12.7" r="0.9" fill="#1F2A2A" /></>
+  ),
+  // A crab with a bit of attitude and serious, ouch-sized pincers (the right one bigger), tilted, a lopsided smirk.
+  crab: (
+    <g transform="rotate(-6 20 20)">
+      <path d="M12.6 22.4 L8.6 20.6 L5.4 22.8 M12 24.4 L7.6 24.8 L5 27.6 M13.4 26.2 L10 28.6 L9 31.2 M27.4 22.4 L31.4 20.6 L34.6 22.8 M28 24.4 L32.4 24.8 L35 27.6 M26.6 26.2 L30 28.6 L31 31.2" stroke="#B5432E" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      <path d="M13.6 20.4 Q9.6 19.2 8.6 15.6" stroke="#B5432E" strokeWidth="2" strokeLinecap="round" fill="none" />
+      <path d="M26.4 20.2 Q30.6 18.6 31.4 14.6" stroke="#B5432E" strokeWidth="2.2" strokeLinecap="round" fill="none" />
+      <g transform="translate(7.6 15.4) rotate(-22) scale(0.8)">
+        <path d="M-2.4 4.6 Q-5.2 -0.6 -3 -5.6 Q0.6 -7.6 4 -4.6 Q5.6 -0.2 3 4.6 Q0.2 6.6 -2.4 4.6 Z" fill="#D9583B" />
+        <path d="M-3 -5 Q-5.4 -9.4 -2.8 -13.6 Q-0.6 -12.8 0.4 -11 Q-1.2 -8.6 0.2 -5.6 Z" fill="#D9583B" />
+        <path d="M1.4 -5.8 Q4.2 -8 3.8 -12.4 Q6.6 -11 7 -8.4 Q6.4 -5.2 4 -4.6 Z" fill="#D9583B" />
+        <path d="M-2.8 -13.6 Q-3.8 -12 -3.8 -10.2 L-2.4 -10.8 Z M3.8 -12.4 Q4.8 -11.4 5.4 -10.2 L4.4 -9.8 Z" fill="#5A1E12" />
+        <path d="M0.3 -10.6 L1.2 -9.8 L0.1 -9 L1 -8.2 L0 -7.4 M3.6 -10.8 L2.8 -10 L3.8 -9.2 L2.8 -8.4" stroke="#FBE3D6" strokeWidth="0.5" strokeLinejoin="round" fill="none" />
+        <path d="M-2 -1.6 Q0.6 0 3 -1.8" stroke="#B5432E" strokeWidth="0.7" strokeLinecap="round" fill="none" />
+      </g>
+      <g transform="translate(31.8 14.6) rotate(18) scale(-0.92 0.92)">
+        <path d="M-2.4 4.6 Q-5.2 -0.6 -3 -5.6 Q0.6 -7.6 4 -4.6 Q5.6 -0.2 3 4.6 Q0.2 6.6 -2.4 4.6 Z" fill="#D9583B" />
+        <path d="M-3 -5 Q-5.4 -9.4 -2.8 -13.6 Q-0.6 -12.8 0.4 -11 Q-1.2 -8.6 0.2 -5.6 Z" fill="#D9583B" />
+        <path d="M1.4 -5.8 Q4.2 -8 3.8 -12.4 Q6.6 -11 7 -8.4 Q6.4 -5.2 4 -4.6 Z" fill="#D9583B" />
+        <path d="M-2.8 -13.6 Q-3.8 -12 -3.8 -10.2 L-2.4 -10.8 Z M3.8 -12.4 Q4.8 -11.4 5.4 -10.2 L4.4 -9.8 Z" fill="#5A1E12" />
+        <path d="M0.3 -10.6 L1.2 -9.8 L0.1 -9 L1 -8.2 L0 -7.4 M3.6 -10.8 L2.8 -10 L3.8 -9.2 L2.8 -8.4" stroke="#FBE3D6" strokeWidth="0.5" strokeLinejoin="round" fill="none" />
+        <path d="M-2 -1.6 Q0.6 0 3 -1.8" stroke="#B5432E" strokeWidth="0.7" strokeLinecap="round" fill="none" />
+      </g>
+      <ellipse cx="20" cy="22.6" rx="8.6" ry="5.4" fill="#D9583B" />
+      <path d="M11.6 24 Q20 30 28.4 24 Q20 26.8 11.6 24 Z" fill="#B5432E" />
+      <ellipse cx="17" cy="20.2" rx="2.8" ry="1.1" fill="#E9876C" />
+      <line x1="17.4" y1="18" x2="17" y2="14.2" stroke="#B5432E" strokeWidth="1.1" strokeLinecap="round" />
+      <line x1="22.2" y1="18" x2="23" y2="14.8" stroke="#B5432E" strokeWidth="1.1" strokeLinecap="round" />
+      <circle cx="17" cy="13.2" r="1.8" fill="#FBF6E6" /><circle cx="16.4" cy="13.3" r="0.9" fill="#1F2A2A" />
+      <circle cx="23.1" cy="13.8" r="1.8" fill="#FBF6E6" /><circle cx="22.5" cy="14.1" r="0.9" fill="#1F2A2A" />
+      <path d="M21.2 13.3 Q23.1 11.2 25 13.3 Q23.1 12.6 21.2 13.3 Z" fill="#D9583B" />
+      <path d="M17.6 23.2 Q19.8 24.6 22.6 22.4" stroke="#5A1E12" strokeWidth="0.8" strokeLinecap="round" fill="none" />
+    </g>
+  ),
+  // A hermit crab peeking out of its borrowed spiral shell.
+  hermit: (
+    <>
+      <path d="M8 23.5 L4 26 M9 25 L6 29 M11.5 25.5 L10 29.5" stroke="#B5432E" strokeWidth="1.2" strokeLinecap="round" fill="none" />
+      <path d="M12 21 Q8.5 19.5 6.5 21.5 Q8 24 11.5 23.5 Z" fill="#D9583B" />
+      <path d="M6.6 21.4 Q4 19.8 4.6 17.6 Q6.4 18.2 7 19.4 Q7.2 17.2 8.8 16.8 Q9.2 19.4 6.6 21.4 Z" fill="#D9583B" />
+      <path d="M27 27.5 Q13 28.5 11.5 22 Q10.5 15 17 11.5 Q24 8 30 11 Q35.5 14 34.5 20 Q33.5 26.5 27 27.5 Z" fill="#F1D9B5" />
+      <path d="M27 27.5 Q13 28.5 11.5 22 Q16 26 27 25 Q33 24 34.5 20 Q33.5 26.5 27 27.5 Z" fill="#E3B98F" />
+      <path d="M22.5 19.5 Q22.8 16.6 25.6 16.8 Q28.6 17.2 28.4 20.2 Q28 23.4 24.4 23.4 Q19.8 23.2 19.4 19.4 Q19.2 14.2 24.6 13.4 Q30.6 12.8 31.6 18.4" stroke="#C47A4E" strokeWidth="1.2" strokeLinecap="round" fill="none" />
+      <line x1="10.5" y1="20.5" x2="9.8" y2="15.4" stroke="#B5432E" strokeWidth="1" strokeLinecap="round" />
+      <line x1="12.4" y1="20" x2="13.4" y2="15.6" stroke="#B5432E" strokeWidth="1" strokeLinecap="round" />
+      <circle cx="9.7" cy="14.4" r="1.6" fill="#FBF6E6" /><circle cx="9.4" cy="14.1" r="0.8" fill="#1F2A2A" />
+      <circle cx="13.6" cy="14.6" r="1.6" fill="#FBF6E6" /><circle cx="13.3" cy="14.3" r="0.8" fill="#1F2A2A" />
+    </>
+  ),
+  // A barnacle stuck sideways to a ship's hull (Karo's redraw): scalloped ribbed shell, a frilly collar,
+  // and four little plates pursed shut like lips.
+  barnacle: (
+    <>
+      <path d="M2 2.6 Q2.4 0.4 4.3 0.6 Q9.5 1.4 12.6 4.4 L13 29 Q9 31.6 5.6 32 Q3.8 32 3.8 30.4 Q3 27 1.7 24.3 Q1.4 21.6 2.3 19.3 Q0.4 16.6 1 14 Q1.6 10.8 3 8 Q2 5 2 2.6 Z" fill="#3A4E58" />
+      <path d="M10.8 4.6 Q11.8 4.2 12.7 4.3 Q20 5 25.7 10 L27.4 22.3 Q22 28.4 15 29 Q11.4 29.2 10.6 27 Q8.2 26 8.6 23.4 Q6.6 21.8 7.6 19 Q5.6 17 7.4 14.6 Q6 12.2 8.6 10.6 Q8 6 10.8 4.6 Z" fill="#F0E7DA" />
+      <path d="M13 5 Q20 6.2 25.5 10.2 M10.3 9.3 Q17 9.8 22.7 12 M8.8 14.8 Q15 14.6 21.3 15.2 M9.5 20.8 Q15.5 20.2 21.7 18.3 M12.5 26 Q18 24.6 23.7 21.3" stroke="#CBC2B8" strokeWidth="1.1" strokeLinecap="round" fill="none" />
+      <circle cx="30.4" cy="16.2" r="1.5" fill="#F4E6D0" /><circle cx="29.4" cy="19.2" r="1.5" fill="#F4E6D0" /><circle cx="26.9" cy="20.7" r="1.5" fill="#F4E6D0" /><circle cx="24.1" cy="20.2" r="1.5" fill="#F4E6D0" /><circle cx="22.3" cy="17.8" r="1.5" fill="#F4E6D0" /><circle cx="22.3" cy="14.6" r="1.5" fill="#F4E6D0" /><circle cx="24.1" cy="12.2" r="1.5" fill="#F4E6D0" /><circle cx="26.9" cy="11.7" r="1.5" fill="#F4E6D0" /><circle cx="29.4" cy="13.2" r="1.5" fill="#F4E6D0" />
+      <ellipse cx="26.2" cy="16.2" rx="4.3" ry="4.8" fill="#F4E6D0" />
+      <ellipse cx="26.5" cy="16.3" rx="2.8" ry="4.3" fill="#D9997A" />
+      <path d="M24.4 15.3 L26.3 15.3 L25.8 12.6 Q25 12.6 24.4 15.3 Z M27 15.3 L29.1 15.2 Q28.6 12.8 27.8 12.6 Z M24.4 17.3 L26.3 17.3 L25.8 20 Q25 20 24.4 17.3 Z M27 17.3 L29.1 17.4 Q28.6 19.8 27.8 20 Z" fill="#B5684A" stroke="#B5684A" strokeWidth="0.5" strokeLinejoin="round" />
+      <ellipse cx="26.6" cy="16.3" rx="1.5" ry="0.25" fill="#6B3A2E" />
+    </>
+  ),
+  // A starfish, a little off-kilter: dark outline, a shaded side and a ridge down each arm, bumpy dots.
+  starfish: (
+    <>
+      <g transform="rotate(8 20 17.5)">
+        <path d="M20.0 4.5 L23.3 13.0 L32.1 14.5 L25.3 19.2 L26.9 28.5 L20.0 23.1 L12.4 28.0 L14.7 19.2 L7.6 13.5 L16.7 13.0 Z" fill="#B9581F" stroke="#B9581F" strokeWidth="3.6" strokeLinejoin="round" />
+        <path d="M20.0 4.5 L23.3 13.0 L32.1 14.5 L25.3 19.2 L26.9 28.5 L20.0 23.1 L12.4 28.0 L14.7 19.2 L7.6 13.5 L16.7 13.0 Z" fill="#E8833A" stroke="#E8833A" strokeWidth="2.4" strokeLinejoin="round" />
+        <path d="M20 17.5 L20.0 4.5 L23.3 13.0 Z M20 17.5 L32.1 14.5 L25.3 19.2 Z M20 17.5 L26.9 28.5 L20.0 23.1 Z M20 17.5 L12.4 28.0 L14.7 19.2 Z M20 17.5 L7.6 13.5 L16.7 13.0 Z" fill="#CF6B2B" fillOpacity="0.55" />
+        <path d="M20 17.5 L20.0 6.8 M20 17.5 L29.9 15.0 M20 17.5 L25.7 26.5 M20 17.5 L13.8 26.1 M20 17.5 L9.8 14.2" stroke="#F3A365" strokeWidth="0.9" strokeLinecap="round" fill="none" />
+        <circle cx="20.0" cy="12.9" r="0.9" fill="#F6C48A" /><circle cx="20.0" cy="9.4" r="0.8" fill="#F6C48A" /><circle cx="24.3" cy="16.1" r="0.9" fill="#F6C48A" /><circle cx="27.6" cy="15.1" r="0.8" fill="#F6C48A" /><circle cx="22.7" cy="21.2" r="0.9" fill="#F6C48A" /><circle cx="24.6" cy="24.2" r="0.8" fill="#F6C48A" /><circle cx="17.3" cy="21.2" r="0.9" fill="#F6C48A" /><circle cx="15.2" cy="24.0" r="0.8" fill="#F6C48A" /><circle cx="15.7" cy="16.1" r="0.9" fill="#F6C48A" /><circle cx="12.4" cy="15.1" r="0.8" fill="#F6C48A" />
+        <circle cx="20" cy="17.6" r="1.3" fill="#C9642A" />
+      </g>
+    </>
+  ),
+  // A live sand dollar: a fuzzy pink-to-purple disc with its pale five-petal flower.
+  sanddollar: (
+    <>
+      <defs>
+        <radialGradient id="fog-sanddollar" cx="42%" cy="36%" r="70%">
+          <stop offset="0" stopColor="#E7A9C4" />
+          <stop offset="0.55" stopColor="#B46A9A" />
+          <stop offset="1" stopColor="#5E3468" />
+        </radialGradient>
+      </defs>
+      <circle cx="20" cy="17" r="12.3" fill="none" stroke="#8A5490" strokeWidth="0.9" strokeDasharray="0.25 0.45" strokeOpacity="0.7" />
+      <circle cx="20" cy="17" r="12" fill="url(#fog-sanddollar)" />
+      <path d="M20.0 14.8 Q22.6 11.7 20.0 8.5 Q17.4 11.7 20.0 14.8 Z" fill="#F3C6DA" fillOpacity="0.35" stroke="#F6D9E6" strokeWidth="0.9" /><path d="M22.1 16.3 Q25.9 17.8 28.1 14.4 Q24.3 12.9 22.1 16.3 Z" fill="#F3C6DA" fillOpacity="0.35" stroke="#F6D9E6" strokeWidth="0.9" /><path d="M21.3 18.8 Q21.0 22.9 25.0 23.9 Q25.2 19.8 21.3 18.8 Z" fill="#F3C6DA" fillOpacity="0.35" stroke="#F6D9E6" strokeWidth="0.9" /><path d="M18.7 18.8 Q14.8 19.8 15.0 23.9 Q19.0 22.9 18.7 18.8 Z" fill="#F3C6DA" fillOpacity="0.35" stroke="#F6D9E6" strokeWidth="0.9" /><path d="M17.9 16.3 Q15.7 12.9 11.9 14.4 Q14.1 17.8 17.9 16.3 Z" fill="#F3C6DA" fillOpacity="0.35" stroke="#F6D9E6" strokeWidth="0.9" />
+      <circle cx="20" cy="17" r="0.9" fill="#F6D9E6" />
+    </>
+  ),
+  // A red lobster: an albatross on your first Bay guess.
+  lobster: (
+    <>
+      <path d="M27.6 13.6 Q31 6 38.6 4.2 M27.6 18.4 Q31 26 38.6 27.8" stroke="#8E2318" strokeWidth="0.6" strokeLinecap="round" fill="none" />
+      <path d="M18 12.6 L16.6 9.6 M21 12.2 L20.4 9 M23.8 12.4 L24 9.6 M18 19.4 L16.6 22.4 M21 19.8 L20.4 23 M23.8 19.6 L24 22.4" stroke="#8E2318" strokeWidth="1" strokeLinecap="round" fill="none" />
+      <g transform="translate(29.6 8.4) scale(1 1)">
+        <path d="M-3.4 4 Q-1.6 1.4 0.4 0.4" stroke="#C8382A" strokeWidth="2" strokeLinecap="round" fill="none" />
+        <path d="M0 1 Q1.8 -2.6 6 -2.8 Q9.4 -2.6 9.6 -0.4 Q7.4 0.2 5.6 0.8 Q8 1.2 9.2 2.6 Q6.6 4.4 3.4 3.8 Q0.6 3.4 0 1 Z" fill="#C8382A" />
+        <path d="M5.6 0.8 Q7.6 0.4 9.6 -0.4 M2 2.2 Q4 3.2 6.4 2.8" stroke="#8E2318" strokeWidth="0.6" strokeLinecap="round" fill="none" />
+      </g>
+      <g transform="translate(29.6 23.6) scale(1 -1)">
+        <path d="M-3.4 4 Q-1.6 1.4 0.4 0.4" stroke="#C8382A" strokeWidth="2" strokeLinecap="round" fill="none" />
+        <path d="M0 1 Q1.8 -2.6 6 -2.8 Q9.4 -2.6 9.6 -0.4 Q7.4 0.2 5.6 0.8 Q8 1.2 9.2 2.6 Q6.6 4.4 3.4 3.8 Q0.6 3.4 0 1 Z" fill="#C8382A" />
+        <path d="M5.6 0.8 Q7.6 0.4 9.6 -0.4 M2 2.2 Q4 3.2 6.4 2.8" stroke="#8E2318" strokeWidth="0.6" strokeLinecap="round" fill="none" />
+      </g>
+      <path d="M6.6 16 L1.6 11.6 Q0.6 16 1.6 20.4 Z M6.6 16 L3.4 10.4 L5.6 16 L3.4 21.6 Z" fill="#8E2318" />
+      <path d="M6 13.4 Q11 12 16.4 12.6 L16.4 19.4 Q11 20 6 18.6 Q5.2 16 6 13.4 Z" fill="#C8382A" />
+      <path d="M8.6 12.9 V19.1 M11.2 12.5 V19.5 M13.8 12.4 V19.6" stroke="#8E2318" strokeWidth="0.7" fill="none" />
+      <ellipse cx="21.6" cy="16" rx="6.4" ry="4.4" fill="#C8382A" />
+      <path d="M15.8 17.4 Q21.6 21.6 27.6 17.4 Q27.4 19.6 21.6 20.4 Q16.2 19.8 15.8 17.4 Z" fill="#8E2318" />
+      <ellipse cx="20.4" cy="14.4" rx="3.6" ry="1.2" fill="#EE8A74" fillOpacity="0.7" />
+      <path d="M27.4 14.2 Q30.4 15 30.6 16 Q30.4 17 27.4 17.8 Z" fill="#C8382A" />
+      <circle cx="28.4" cy="14.4" r="0.85" fill="#1F2A2A" /><circle cx="28.4" cy="17.6" r="0.85" fill="#1F2A2A" />
+    </>
+  ),
+  // A blue lobster (rare in real life too): an albatross on your first Open Sea guess.
+  bluelobster: (
+    <>
+      <path d="M27.6 13.6 Q31 6 38.6 4.2 M27.6 18.4 Q31 26 38.6 27.8" stroke="#1F4C86" strokeWidth="0.6" strokeLinecap="round" fill="none" />
+      <path d="M18 12.6 L16.6 9.6 M21 12.2 L20.4 9 M23.8 12.4 L24 9.6 M18 19.4 L16.6 22.4 M21 19.8 L20.4 23 M23.8 19.6 L24 22.4" stroke="#1F4C86" strokeWidth="1" strokeLinecap="round" fill="none" />
+      <g transform="translate(29.6 8.4) scale(1 1)">
+        <path d="M-3.4 4 Q-1.6 1.4 0.4 0.4" stroke="#3A78C2" strokeWidth="2" strokeLinecap="round" fill="none" />
+        <path d="M0 1 Q1.8 -2.6 6 -2.8 Q9.4 -2.6 9.6 -0.4 Q7.4 0.2 5.6 0.8 Q8 1.2 9.2 2.6 Q6.6 4.4 3.4 3.8 Q0.6 3.4 0 1 Z" fill="#3A78C2" />
+        <path d="M5.6 0.8 Q7.6 0.4 9.6 -0.4 M2 2.2 Q4 3.2 6.4 2.8" stroke="#1F4C86" strokeWidth="0.6" strokeLinecap="round" fill="none" />
+      </g>
+      <g transform="translate(29.6 23.6) scale(1 -1)">
+        <path d="M-3.4 4 Q-1.6 1.4 0.4 0.4" stroke="#3A78C2" strokeWidth="2" strokeLinecap="round" fill="none" />
+        <path d="M0 1 Q1.8 -2.6 6 -2.8 Q9.4 -2.6 9.6 -0.4 Q7.4 0.2 5.6 0.8 Q8 1.2 9.2 2.6 Q6.6 4.4 3.4 3.8 Q0.6 3.4 0 1 Z" fill="#3A78C2" />
+        <path d="M5.6 0.8 Q7.6 0.4 9.6 -0.4 M2 2.2 Q4 3.2 6.4 2.8" stroke="#1F4C86" strokeWidth="0.6" strokeLinecap="round" fill="none" />
+      </g>
+      <path d="M6.6 16 L1.6 11.6 Q0.6 16 1.6 20.4 Z M6.6 16 L3.4 10.4 L5.6 16 L3.4 21.6 Z" fill="#1F4C86" />
+      <path d="M6 13.4 Q11 12 16.4 12.6 L16.4 19.4 Q11 20 6 18.6 Q5.2 16 6 13.4 Z" fill="#3A78C2" />
+      <path d="M8.6 12.9 V19.1 M11.2 12.5 V19.5 M13.8 12.4 V19.6" stroke="#1F4C86" strokeWidth="0.7" fill="none" />
+      <ellipse cx="21.6" cy="16" rx="6.4" ry="4.4" fill="#3A78C2" />
+      <path d="M15.8 17.4 Q21.6 21.6 27.6 17.4 Q27.4 19.6 21.6 20.4 Q16.2 19.8 15.8 17.4 Z" fill="#1F4C86" />
+      <ellipse cx="20.4" cy="14.4" rx="3.6" ry="1.2" fill="#9CC4EE" fillOpacity="0.7" />
+      <path d="M27.4 14.2 Q30.4 15 30.6 16 Q30.4 17 27.4 17.8 Z" fill="#3A78C2" />
+      <circle cx="28.4" cy="14.4" r="0.85" fill="#1F2A2A" /><circle cx="28.4" cy="17.6" r="0.85" fill="#1F2A2A" />
+    </>
+  ),
+  // A walrus hauled out, tusks down: won on the very last row. Grey-blue for the Bay...
+  walrus: (
+    <>
+      <path d="M4.6 24.6 L0.6 21.4 Q0 26.4 3.6 27.6 Z" fill="#566A74" />
+      <path d="M3.6 27.4 Q1.8 18.4 9.6 13 Q17 8.4 25 9.4 Q31 10.2 33.4 14 Q35 17.6 32 20 Q29.6 21.6 28 24 Q27.4 27.4 24 27.6 Z" fill="#7F929B" />
+      <path d="M8 20 Q10 17 13.4 16.4 M14 25 Q15.6 21.4 19.6 20.6 M18.6 13 Q21 12 23.6 12.8" stroke="#566A74" strokeWidth="0.8" strokeLinecap="round" fill="none" />
+      <path d="M21.6 23.6 Q23.6 28.8 29.6 28.4 Q27.6 25.4 26.6 22.4 Z" fill="#566A74" />
+      <ellipse cx="17" cy="14.4" rx="5" ry="1.6" fill="#B4C3C9" fillOpacity="0.55" />
+      <path d="M30.4 18.8 Q29.8 22.6 30.2 26 M33 18.8 Q33.6 22.6 33 26" stroke="#F4ECD8" strokeWidth="1.4" strokeLinecap="round" fill="none" />
+      <ellipse cx="31.8" cy="16.6" rx="3.6" ry="2.6" fill="#B4C3C9" />
+      <circle cx="30.6" cy="16.6" r="0.35" fill="#566A74" /><circle cx="31.8" cy="17.4" r="0.35" fill="#566A74" /><circle cx="33" cy="16.6" r="0.35" fill="#566A74" /><circle cx="31.2" cy="15.6" r="0.35" fill="#566A74" /><circle cx="32.6" cy="15.6" r="0.35" fill="#566A74" />
+      <circle cx="27.4" cy="12.8" r="0.85" fill="#1F2A2A" />
+    </>
+  ),
+  // ...and flushed pink for the Open Sea (real walruses go pink when the blood rushes to their skin).
+  pinkwalrus: (
+    <>
+      <path d="M4.6 24.6 L0.6 21.4 Q0 26.4 3.6 27.6 Z" fill="#B86E5E" />
+      <path d="M3.6 27.4 Q1.8 18.4 9.6 13 Q17 8.4 25 9.4 Q31 10.2 33.4 14 Q35 17.6 32 20 Q29.6 21.6 28 24 Q27.4 27.4 24 27.6 Z" fill="#E2A190" />
+      <path d="M8 20 Q10 17 13.4 16.4 M14 25 Q15.6 21.4 19.6 20.6 M18.6 13 Q21 12 23.6 12.8" stroke="#B86E5E" strokeWidth="0.8" strokeLinecap="round" fill="none" />
+      <path d="M21.6 23.6 Q23.6 28.8 29.6 28.4 Q27.6 25.4 26.6 22.4 Z" fill="#B86E5E" />
+      <ellipse cx="17" cy="14.4" rx="5" ry="1.6" fill="#F4CFC2" fillOpacity="0.55" />
+      <path d="M30.4 18.8 Q29.8 22.6 30.2 26 M33 18.8 Q33.6 22.6 33 26" stroke="#F4ECD8" strokeWidth="1.4" strokeLinecap="round" fill="none" />
+      <ellipse cx="31.8" cy="16.6" rx="3.6" ry="2.6" fill="#F4CFC2" />
+      <circle cx="30.6" cy="16.6" r="0.35" fill="#B86E5E" /><circle cx="31.8" cy="17.4" r="0.35" fill="#B86E5E" /><circle cx="33" cy="16.6" r="0.35" fill="#B86E5E" /><circle cx="31.2" cy="15.6" r="0.35" fill="#B86E5E" /><circle cx="32.6" cy="15.6" r="0.35" fill="#B86E5E" />
+      <circle cx="27.4" cy="12.8" r="0.85" fill="#1F2A2A" />
+    </>
   ),
   nautilus: (
     <><path d="M30 15.5 Q34 12.5 38 13 M30.5 17 Q35 16 38.5 17 M30.5 18.5 Q34.5 19.5 37.5 21.5 M29.5 20 Q32.5 22.5 35 25" fill="none" stroke="#8A5A3C" strokeWidth="1.2" strokeLinecap="round" /><path d="M23 9 Q30 10 32.5 16 Q31.5 21.5 26 24 Z" fill="#E3B98F" /><circle cx="16" cy="15" r="10.5" fill="#F1E6CC" /><path d="M21 18 L15.1 4.5 A10.5 10.5 0 0 0 12.8 5.0 Z" fill="#B5543B" /><path d="M21 18 L10.0 6.4 A10.5 10.5 0 0 0 8.2 8.0 Z" fill="#B5543B" /><path d="M21 18 L6.5 10.6 A10.5 10.5 0 0 0 5.7 12.8 Z" fill="#B5543B" /><path d="M21 18 L5.5 15.9 A10.5 10.5 0 0 0 6.0 18.2 Z" fill="#B5543B" /><path d="M21 18 L7.4 21.0 A10.5 10.5 0 0 0 9.0 22.8 Z" fill="#B5543B" /><path d="M21 18 L11.6 24.5 A10.5 10.5 0 0 0 13.8 25.3 Z" fill="#B5543B" /><circle cx="16" cy="15" r="10.5" fill="none" stroke="#8A5A3C" strokeWidth="0.8" /><path d="M21 18 Q21.5 14 18.5 13 Q15 12.5 14.5 16 Q14.5 19.5 18 20" fill="none" stroke="#8A5A3C" strokeWidth="0.8" strokeLinecap="round" /><circle cx="29.3" cy="15.8" r="1.4" fill="#FBF8EF" /><circle cx="29.7" cy="15.9" r="0.7" fill="#1F2A2A" /></>

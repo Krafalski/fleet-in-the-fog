@@ -7,12 +7,15 @@ import { useRef } from 'react';
 import type { CSSProperties, ReactElement } from 'react';
 
 export type ShipKind = 'fisher' | 'junk' | 'mailboat' | 'schooner' | 'tug' | 'yacht';
-export type BadgeKind = 'paper' | 'rowboat' | 'canoe' | 'raft' | 'gondola' | 'houseboat' | 'ferry' | 'lightship' | 'paddle' | 'cargo' | 'longship' | 'pirate' | 'icebreaker' | 'submarine' | 'tallship' | 'liner' | 'galleon' | 'ghost';
+export type BadgeKind = 'paper' | 'rowboat' | 'canoe' | 'raft' | 'gondola' | 'houseboat' | 'ferry' | 'lightship' | 'paddle' | 'cargo' | 'longship' | 'pirate' | 'icebreaker' | 'submarine' | 'tallship' | 'liner' | 'galleon' | 'ghost' | 'kayak' | 'outrigger' | 'catamaran';
 // Spare boats: drawn and ready, not used by the game yet.
-export type SpareKind = 'barge' | 'catamaran' | 'dhow' | 'lifeboat' | 'outrigger' | 'powerboat' | 'carrier' | 'cruise' | 'kayak';
+export type SpareKind = 'barge' | 'dhow' | 'lifeboat' | 'powerboat' | 'carrier' | 'cruise';
 export type BoatKind = ShipKind | BadgeKind | SpareKind;
-// 'night' is the ghost ship's Open sea look: black sails, white eyes, a charcoal hull.
-export type BoatLook = 'color' | 'locked' | 'year2' | 'year3' | 'night';
+// 'night' is the ghost ship's Open Sea look: black sails, white eyes, a charcoal hull.
+// The four looks a streak boat can be earned in: 'color' (Bay, year 1), 'sea' (Open Sea, year 1: inverse colors),
+// 'gold' (Bay, year 2) and 'jewel' (Open Sea, year 2: each boat its own gem). 'year2' / 'year3' are older
+// saved names ('year2' was the inverse colors, so it now shows as 'sea').
+export type BoatLook = 'color' | 'locked' | 'sea' | 'gold' | 'jewel' | 'year2' | 'year3' | 'night';
 
 // Game ships in tray order (alphabetical, each a different first letter).
 export const SHIP_KINDS: ShipKind[] = ['fisher', 'junk', 'mailboat', 'schooner', 'tug', 'yacht'];
@@ -20,30 +23,10 @@ export const SHIP_NAMES: Record<ShipKind, string> = {
   fisher: 'Yellow fisher', junk: 'Purple junk', mailboat: 'Red mailboat', schooner: 'Green schooner', tug: 'Blue tug', yacht: 'Coral yacht',
 };
 
-// Badge boats in earning order.
-export const BADGE_LADDER: { kind: BadgeKind; name: string; how: string }[] = [
-  { kind: 'paper', name: 'Paper boat', how: 'First solved day' },
-  { kind: 'rowboat', name: 'Rowboat', how: '3-day streak' },
-  { kind: 'canoe', name: 'Canoe', how: '7-day streak' },
-  { kind: 'raft', name: 'Raft', how: '10-day streak' },
-  { kind: 'gondola', name: 'Gondola', how: '14-day streak' },
-  { kind: 'houseboat', name: 'Houseboat', how: '30-day streak' },
-  { kind: 'ferry', name: 'Ferry', how: '2-month streak' },
-  { kind: 'lightship', name: 'Lightship', how: '3-month streak' },
-  { kind: 'paddle', name: 'Paddle steamer', how: '4-month streak' },
-  { kind: 'cargo', name: 'Cargo ship', how: '5-month streak' },
-  { kind: 'longship', name: 'Longship', how: '6-month streak' },
-  { kind: 'pirate', name: 'Pirate ship', how: '7-month streak' },
-  { kind: 'icebreaker', name: 'Icebreaker', how: '8-month streak' },
-  { kind: 'submarine', name: 'Submarine', how: '9-month streak' },
-  { kind: 'tallship', name: 'Tall ship', how: '10-month streak' },
-  { kind: 'liner', name: 'Ocean liner', how: '11-month streak' },
-  { kind: 'galleon', name: 'Golden galleon', how: '12-month streak' },
-  { kind: 'ghost', name: 'Ghost ship', how: 'Mystery' },
-];
+// Badge boats, their names and how they're earned: see BADGES in game/badges.ts.
 
 export const SPARE_NAMES: Record<SpareKind, string> = {
-  barge: 'Barge', catamaran: 'Catamaran', dhow: 'Dhow', lifeboat: 'Lifeboat', outrigger: 'Outrigger', powerboat: 'Powerboat', carrier: 'Aircraft carrier', cruise: 'Cruise ship', kayak: 'Kayak',
+  barge: 'Barge', dhow: 'Dhow', lifeboat: 'Lifeboat', powerboat: 'Powerboat', carrier: 'Aircraft carrier', cruise: 'Cruise ship',
 };
 
 const DRAWINGS: Record<BoatKind, ReactElement> = {
@@ -154,12 +137,61 @@ const DRAWINGS: Record<BoatKind, ReactElement> = {
 const LOOKS: Record<BoatLook, CSSProperties> = {
   color: {},
   locked: { filter: 'grayscale(1)', opacity: 0.3 },        // not earned yet
-  year2: { filter: 'invert(1) hue-rotate(180deg)' },       // second time around
-  year3: { filter: 'grayscale(1) contrast(1.15)' },        // third time around
+  sea: { filter: 'invert(1) hue-rotate(180deg)' },         // Open Sea, year 1: inverse colors
+  year2: { filter: 'invert(1) hue-rotate(180deg)' },       // older saves: same as 'sea'
+  year3: { filter: 'grayscale(1) contrast(1.15)' },        // older saves only
+  gold: {},                                                 // drawn through a gold filter (see Treasure below)
+  jewel: {},                                                // drawn through a gem filter (see Treasure below)
   night: {},                                                // the dark ghost ship (its own drawing)
 };
 
-// The ghost ship, after an Open sea loss: same shape, dark sails and hull, white eyes.
+// ---------- Year-2 treasure looks: gold (Bay) and jewel tones (Open Sea) ----------
+// Both are "gradient maps": the boat's own light and shade, recolored along one metal or gem,
+// so every boat keeps its details. Colors run dark → light.
+const GOLD = ['#5A3A05', '#A8740E', '#E2AE2A', '#FFD966', '#FFF4C2'];
+// Boats that are already gold or brown would look too much like themselves in gold,
+// so their gold runs the other way (light parts dark, dark parts light).
+const GOLD_FLIPPED = new Set<string>(['galleon', 'kayak', 'raft', 'outrigger', 'canoe']);
+const GEMS: Record<string, string[]> = {
+  ruby: ['#2A0410', '#7A0C2E', '#C2185B', '#F06292', '#FFE0EC'],
+  sapphire: ['#030F2E', '#0B3A8C', '#1E63D6', '#6FA8FF', '#E6F0FF'],
+  emerald: ['#02261A', '#0B6B45', '#12A36A', '#5FE0A8', '#E3FFF2'],
+  amethyst: ['#1A0730', '#4B1A87', '#7E3FD1', '#B98CF5', '#F3EAFF'],
+  topaz: ['#2E1302', '#8A3B06', '#E0700F', '#FFB45C', '#FFF0DC'],
+  aquamarine: ['#022427', '#0A6B70', '#13A8AE', '#6FE3E6', '#E2FEFF'],
+};
+// Each boat's own gem, set in harbor order so neighbors differ.
+export const GEM_OF: Record<string, string> = {
+  paper: 'sapphire', kayak: 'emerald', rowboat: 'ruby', canoe: 'amethyst', raft: 'topaz', gondola: 'aquamarine',
+  outrigger: 'ruby', houseboat: 'sapphire', catamaran: 'amethyst', ferry: 'emerald', lightship: 'ruby', paddle: 'topaz',
+  cargo: 'aquamarine', longship: 'sapphire', pirate: 'amethyst', icebreaker: 'aquamarine', submarine: 'emerald',
+  tallship: 'ruby', liner: 'topaz', galleon: 'sapphire',
+};
+export const GEM_NAME: Record<string, string> = { ruby: 'Ruby', sapphire: 'Sapphire', emerald: 'Emerald', amethyst: 'Amethyst', topaz: 'Topaz', aquamarine: 'Aquamarine' };
+let treasureCount = 0;
+function Treasure({ kind, look }: { kind: BoatKind; look: 'gold' | 'jewel' }) {
+  const id = useRef(`treasure-${++treasureCount}`).current;
+  let ramp = look === 'gold' ? GOLD : GEMS[GEM_OF[kind] ?? 'sapphire'];
+  if (look === 'gold' && GOLD_FLIPPED.has(kind)) ramp = [...ramp].reverse();
+  const channel = (i: number) => ramp.map((h) => (parseInt(h.slice(1 + i * 2, 3 + i * 2), 16) / 255).toFixed(3)).join(' ');
+  return (
+    <>
+      <defs>
+        <filter id={id} colorInterpolationFilters="sRGB">
+          <feColorMatrix type="matrix" values="0.33 0.5 0.17 0 0  0.33 0.5 0.17 0 0  0.33 0.5 0.17 0 0  0 0 0 1 0" />
+          <feComponentTransfer>
+            <feFuncR type="table" tableValues={channel(0)} />
+            <feFuncG type="table" tableValues={channel(1)} />
+            <feFuncB type="table" tableValues={channel(2)} />
+          </feComponentTransfer>
+        </filter>
+      </defs>
+      <g filter={`url(#${id})`}>{DRAWINGS[kind]}</g>
+    </>
+  );
+}
+
+// The ghost ship, after an Open Sea loss: same shape, dark sails and hull, white eyes.
 const GHOST_NIGHT: ReactElement = (
   <><line x1="15.5" y1="5" x2="15.5" y2="19" stroke="#22302E" strokeWidth="1" strokeLinecap="round" /><line x1="27" y1="7" x2="27" y2="19" stroke="#22302E" strokeWidth="1" strokeLinecap="round" /><path d="M10.5 3.5 L13 7 H18 L20.5 3.5 V15 Q19.25 17.5 18 15 Q16.75 12.5 15.5 15 Q14.25 17.5 13 15 Q11.75 12.5 10.5 15 Z" fill="#22302E" stroke="#22302E" strokeWidth="0.6" strokeLinejoin="round" /><ellipse cx="13.6" cy="10.4" rx="0.9" ry="1.3" fill="#B8FFE0" /><ellipse cx="17.4" cy="10.4" rx="0.9" ry="1.3" fill="#B8FFE0" /><path d="M23 6.5 L25 9.2 H29 L31 6.5 V14.5 Q30 16.5 29 14.5 Q28 12.5 27 14.5 Q26 16.5 25 14.5 Q24 12.5 23 14.5 Z" fill="#22302E" stroke="#22302E" strokeWidth="0.6" strokeLinejoin="round" /><ellipse cx="25.7" cy="11.4" rx="0.7" ry="1" fill="#B8FFE0" /><ellipse cx="28.3" cy="11.4" rx="0.7" ry="1" fill="#B8FFE0" /><path d="M3 19 H37 L33 28 H7 Z" fill="#3E4A47" /><line x1="8" y1="23" x2="33" y2="23" stroke="#9FD8C4" strokeWidth="1" strokeLinecap="round" strokeDasharray="3 2" /></>
 );
@@ -180,7 +212,9 @@ export function Boat({ kind, look = 'color', size = 1, label }:
       aria-label={label}
       aria-hidden={label ? undefined : true}
     >
-      {kind === 'ghost' && look !== 'locked' ? <GhostGlow night={look === 'night'} /> : DRAWINGS[kind]}
+      {kind === 'ghost' && look !== 'locked' ? <GhostGlow night={look === 'night'} />
+        : look === 'gold' || look === 'jewel' ? <Treasure kind={kind} look={look} />
+        : DRAWINGS[kind]}
     </svg>
   );
 }

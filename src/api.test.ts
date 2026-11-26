@@ -18,7 +18,8 @@ import type { DayResult } from './api';
 import { addDays } from './game/dates';
 import { newGame } from './game/reducer';
 import type { GameState } from './game/reducer';
-import type { DailyMode } from './game/game';
+import type { DailyMode, Ship } from './game/game';
+import { MODES, puzzleForDate } from './game/game';
 import { answerLine, parseDays, seedDays } from './devUrl';
 
 const TODAY = '2027-06-15';
@@ -53,18 +54,18 @@ describe('streak boats', () => {
     expect(out.newBadges).toEqual(['paper']);
   });
 
-  test('2 seeded days and a win: a 3-day streak and the rowboat', async () => {
+  test('2 seeded days and a win: a 3-day streak, the kayak and the rowboat', async () => {
     seed(2);
     const out = await winToday();
     expect(out.streak).toBe(3);
-    expect(out.newBadges).toEqual(['paper', 'rowboat']);
+    expect(out.newBadges).toEqual(['paper', 'kayak', 'rowboat']);
   });
 
-  test('359 seeded days and a win: all 17 streak boats, but no ghost ship', async () => {
+  test('359 seeded days and a win: all 20 streak boats, but no ghost ship', async () => {
     seed(359);
     await winToday();
     const badges = saved<Record<string, string>>('badges', {});
-    expect(Object.keys(badges).length).toBe(17);
+    expect(Object.keys(badges).length).toBe(20);
     expect(badges.galleon).toBe(TODAY);
     expect(badges.ghost === undefined).toBe(true);
   });
@@ -76,7 +77,7 @@ describe('streak boats', () => {
     expect(out.streak).toBe(4);
   });
 
-  test('a Bay loss brings the light ghost, an Open sea loss the dark one', async () => {
+  test('a Bay loss brings the light ghost, an Open Sea loss the dark one', async () => {
     expect((await api.recordResult(finished('lost', 'easy'), TODAY)).newBadges).toEqual(['ghost']);
     expect((await api.recordResult(finished('lost', 'hard'), TODAY)).newBadges).toEqual(['ghostDark']);
     const badges = saved<Record<string, string>>('badges', {});
@@ -99,55 +100,115 @@ describe('streak boats', () => {
   });
 });
 
-describe('colors by year', () => {
-  test('700 seeded days and a win: 16 boats in year 2, the galleon still in year 1', async () => {
-    seed(700);
-    await winToday();
-    const { timesEarned, newColorsOn } = await api.loadProgress(TODAY);
-    expect(timesEarned.liner).toBe(2);
-    expect(timesEarned.galleon).toBe(1);
-    expect(Object.values(timesEarned).filter((y) => y === 2).length).toBe(16);
-    expect(newColorsOn.liner).toBe(TODAY);
+describe('two tracks: Bay and Open Sea looks', () => {
+  const looksOf = async () => (await api.loadProgress(TODAY)).looksEarned;
+
+  test('30 days of Bay only: Bay looks up to the houseboat, no Open Sea looks', async () => {
+    seed(29);
+    await winToday('easy');
+    const looks = await looksOf();
+    expect(looks['houseboat:color']).toBe(TODAY);
+    expect(looks['catamaran:color']).toBe(undefined as unknown as string); // needs 45 Bay wins
+    expect(Object.keys(looks).some((k) => k.endsWith(':sea'))).toBe(false);
   });
 
-  test('900 seeded days and a win: year 3 up to the longship, year 2 after it', async () => {
-    seed(900);
-    await winToday();
-    const { timesEarned } = await api.loadProgress(TODAY);
-    expect(timesEarned.longship).toBe(3);
-    expect(timesEarned.pirate).toBe(2);
-    expect(timesEarned.galleon).toBe(2);
+  test('then 5 Open Sea wins: Open Sea paper boat, kayak and rowboat, not the canoe', async () => {
+    seed(29);
+    seed(4, [], 'hard');
+    await winToday('easy');
+    await winToday('hard');
+    const { looksEarned, wins } = await api.loadProgress(TODAY);
+    expect(wins).toEqual({ bay: 30, sea: 5 });
+    expect(['paper', 'kayak', 'rowboat'].every((k) => looksEarned[`${k}:sea`])).toBe(true);
+    expect(looksEarned['canoe:sea']).toBe(undefined as unknown as string);
   });
 
-  test('colors stay earned after the streak breaks', async () => {
-    seed(400);
+  test('after the first month only a 30-day streak is needed: 219 wins, a break, then 31 days', async () => {
+    seed(220, [31]);
+    const out = await winToday();
+    expect(out.streak).toBe(31);
+    const looks = await looksOf();
+    expect(looks['longship:color']).toBe(TODAY);   // 180 wins
+    expect(looks['pirate:color']).toBe(TODAY);     // 210 wins
+    expect(looks['icebreaker:color']).toBe(undefined as unknown as string); // 240 wins: not yet
+  });
+
+  test('a short streak holds the next look back even with plenty of wins', async () => {
+    seed(220, [10]); // a break 10 days ago: streak of 10 with today
     await winToday();
-    storage.setItem(`${KEY}:results`, JSON.stringify({})); // every day forgotten: streak gone
-    const { streak, timesEarned } = await api.loadProgress(TODAY);
+    const looks = await looksOf();
+    expect(looks['raft:color']).toBe(TODAY);       // 10 wins, 10-day streak
+    expect(looks['gondola:color']).toBe(undefined as unknown as string); // 14-day streak needed
+  });
+
+  test('earned looks stay after the streak breaks, and wins never reset', async () => {
+    seed(40);
+    await winToday();
+    storage.setItem(`${KEY}:results`, JSON.stringify({}));
+    const { streak, looksEarned } = await api.loadProgress(TODAY);
     expect(streak).toBe(0);
-    expect(timesEarned.paper).toBe(2);
+    expect(looksEarned['houseboat:color']).toBe(TODAY);
+  });
+
+  test('past days played later count for nothing here', async () => {
+    const results = saved<Record<string, DayResult>>('results', {});
+    for (let i = 1; i <= 10; i++) { const day = addDays(TODAY, -i); results[`${day}:hard`] = { dateKey: day, mode: 'hard', status: 'won', guesses: 4, rounds: 1, hints: 0, playedOn: TODAY }; }
+    storage.setItem(`${KEY}:results`, JSON.stringify(results));
+    expect((await api.loadProgress(TODAY)).wins).toEqual({ bay: 0, sea: 0 });
+  });
+
+  test('year 2: 400 Bay days gives gold up to the houseboat (390), not the catamaran (405)', async () => {
+    seed(399);
+    await winToday();
+    const looks = await looksOf();
+    expect(looks['paper:gold']).toBe(TODAY);
+    expect(looks['houseboat:gold']).toBe(TODAY);
+    expect(looks['catamaran:gold']).toBe(undefined as unknown as string);
+    expect(Object.keys(looks).some((k) => k.endsWith(':jewel'))).toBe(false);
+  });
+
+  test('a win card only lists the looks its own game earned', async () => {
+    seed(6);
+    seed(6, [], 'hard');
+    await winToday('easy');
+    await winToday('hard');
+    const { looksEarnedBy } = await api.loadProgress(TODAY);
+    expect(looksEarnedBy['canoe:color']).toBe(`${TODAY}:easy`);
+    expect(looksEarnedBy['canoe:sea']).toBe(`${TODAY}:hard`);
+  });
+
+  test('older saves carry over: boats keep their colors, old second-year colors become the Open Sea look', async () => {
+    storage.setItem(`${KEY}:badges`, JSON.stringify({ paper: '2026-01-01', rowboat: '2026-01-03' }));
+    storage.setItem(`${KEY}:years`, JSON.stringify({ paper: 2 }));
+    const looks = await looksOf();
+    expect(looks['paper:color']).toBe('2026-01-01');
+    expect(looks['paper:sea']).toBe('2026-01-01');
+    expect(looks['rowboat:sea']).toBe(undefined as unknown as string);
   });
 });
 
 describe('the Fleet Admiral cup', () => {
-  test('1079 seeded days and a win (1080): not yet', async () => {
-    seed(1079);
-    await winToday();
+  test('720 Bay wins but 719 Open Sea: not yet', async () => {
+    seed(719);
+    seed(719, [], 'hard');
+    await winToday('easy');
     expect((await api.loadProgress(TODAY)).trophy).toBe(null);
   });
 
-  test('1080 seeded days and a win (1081): earned today, every boat in year 3', async () => {
-    seed(1080);
-    await winToday();
-    const { trophy, timesEarned } = await api.loadProgress(TODAY);
+  test('720 wins in each game: earned today, every boat in all four looks', async () => {
+    seed(719);
+    seed(719, [], 'hard');
+    await winToday('easy');
+    await winToday('hard');
+    const { trophy, looksEarned } = await api.loadProgress(TODAY);
     expect(trophy).toBe(TODAY);
-    expect(Object.values(timesEarned).every((y) => y === 3)).toBe(true);
+    expect(Object.keys(looksEarned).length).toBe(80);
   });
 });
 
 describe('streak repairs', () => {
   test('missed yesterday and the day before: a repair is offered for 2 days', async () => {
-    seed(70, [1, 2]); // 68 days played: repairs from days 2, 20 and 45, each mends 1 day
+    seed(70, [1, 2]); // 68 days played: repairs from days 4, 25 and 52, each mends 1 day
     const { repairOffer, repairs } = await api.loadProgress(TODAY);
     expect(repairs.ones).toBe(3);
     expect(repairOffer!.missedDays).toBe(2);
@@ -155,7 +216,7 @@ describe('streak repairs', () => {
   });
 
   test('only one repair for a 2-day gap: no offer', async () => {
-    seed(12, [1, 2]); // 10 days played: one repair (day 2), not enough
+    seed(12, [1, 2]); // 10 days played: one repair (day 4), not enough
     expect((await api.loadProgress(TODAY)).repairOffer).toBe(null);
   });
 
@@ -177,17 +238,20 @@ describe('Reset today (dev bar)', () => {
     expect(again.newBadges).toEqual(first.newBadges);
   });
 
-  test('reset also takes back colors and the cup earned today', async () => {
-    seed(1080);
-    await winToday();
+  test('reset also takes back looks and the cup earned today', async () => {
+    seed(719);
+    seed(719, [], 'hard');
+    await winToday('easy');
+    await winToday('hard');
     resetToday(TODAY);
     const after = await api.loadProgress(TODAY);
     expect(after.trophy).toBe(null);
-    expect(after.timesEarned.galleon).toBe(undefined as unknown as number);
-    await winToday();
+    expect(after.looksEarned['galleon:jewel']).toBe(undefined as unknown as string);
+    await winToday('easy');
+    await winToday('hard');
     const back = await api.loadProgress(TODAY);
     expect(back.trophy).toBe(TODAY);
-    expect(back.timesEarned.galleon).toBe(3);
+    expect(back.looksEarned['galleon:jewel']).toBe(TODAY);
   });
 });
 
@@ -305,7 +369,7 @@ describe('the answer line in the console', () => {
   test('names the day and both fleets in color words', () => {
     const line = answerLine('2026-11-18');
     expect(line.startsWith('Wednesday, November 18. Bay: ')).toBe(true);
-    expect(line.includes(' || Open sea: ')).toBe(true);
+    expect(line.includes(' || Open Sea: ')).toBe(true);
   });
 });
 
@@ -322,7 +386,7 @@ describe('spyglass', () => {
     return { ...game, guesses: [guess], feedback: [fb.feedback] };
   }
 
-  test('2 golden spyglasses come with every new boat', async () => {
+  test('2 golden Spyglasses come with every new boat', async () => {
     await winToday(); // paper boat
     expect((await api.loadProgress(TODAY)).goldenSpyglasses).toBe(2);
   });
@@ -368,7 +432,7 @@ describe('spyglass', () => {
     expect(stats.you.hard.score).toBe(8);
     expect(stats.sightings.hard[8]).toBe(1);
   });
-  test('Reset today gives back golden spyglasses used today', async () => {
+  test('Reset today gives back golden Spyglasses used today', async () => {
     await winToday('easy');
     await api.useSpyglass(await hardWithRightSpot(), TODAY);
     resetToday(TODAY, ['hard']);
@@ -403,5 +467,116 @@ describe('hints include spyglass points', () => {
     const stats = await api.loadStats();
     expect(stats.you.hard.hints).toBe(3);
     expect(stats.you.hard.score).toBe((stats.you.hard.average ?? 0) + 3);
+  });
+});
+
+describe('the nautilus and the compass', () => {
+  test('the Bay and the Open Sea won with the same score on one day: a nautilus, counted', async () => {
+    await winToday('easy');
+    const out = await winToday('hard'); // both in 3 guesses, no hints
+    expect(out.nautilus).toBe(1);
+    const p = await api.loadProgress(TODAY);
+    expect([p.nautilus, p.nautilusCount]).toEqual([TODAY, 1]);
+  });
+
+  test('different scores, or a loss: no nautilus', async () => {
+    await winToday('easy');
+    const hard = { ...finished('won', 'hard'), hintsUsed: 1 }; // score 4 vs 3
+    expect((await api.recordResult(hard, TODAY)).nautilus).toBe(undefined as unknown as number);
+    expect((await api.loadProgress(TODAY)).nautilusCount).toBe(0);
+  });
+
+  test('the Bay took more guesses than the Open Sea: a crab, counted; the reverse gets nothing', async () => {
+    const four = (mode: DailyMode) => { const f = finished('won', mode); return { ...f, guesses: [...f.guesses, f.guesses[0]] }; };
+    await api.recordResult(four('easy'), TODAY); // Bay in 4
+    const out = await winToday('hard');           // Open Sea in 3
+    expect(out.crab).toBe(1);
+    expect(out.nautilus).toBe(undefined as unknown as number);
+    expect([(await api.loadProgress(TODAY)).crab, (await api.loadProgress(TODAY)).crabCount]).toEqual([TODAY, 1]);
+    storage.clear();
+    await winToday('easy');
+    expect((await api.recordResult(four('hard'), TODAY)).crab).toBe(undefined as unknown as number);
+  });
+
+  test('a hint does not buy a crab: guesses only', async () => {
+    await winToday('easy');
+    const out = await api.recordResult({ ...finished('won', 'hard'), hintsUsed: 2 }, TODAY);
+    expect(out.crab).toBe(undefined as unknown as number);
+  });
+
+  test('a win after Keep trying: a hermit crab, once per game', async () => {
+    await api.recordResult(finished('lost'), TODAY);
+    const kept = { ...finished('won'), tries: [3] } as GameState;
+    expect((await api.recordResult(kept, TODAY)).hermit).toBe(1);
+    expect((await api.recordResult(kept, TODAY)).hermit).toBe(1);
+    const p = await api.loadProgress(TODAY);
+    expect([p.hermit, p.hermitCount, p.streak]).toEqual([TODAY, 1, 0]);
+  });
+
+  test('the compass is found once', async () => {
+    expect(await api.findCompass(TODAY)).toBe(true);
+    expect(await api.findCompass(TODAY)).toBe(false);
+    expect((await api.loadProgress(TODAY)).compass).toBe(TODAY);
+  });
+});
+
+describe('barnacle, starfish, sand dollar, lobsters, walruses', () => {
+  const extras = async () => (await api.loadProgress(TODAY)).extras;
+  // A guess with every ship of the answer, none in its spot (an albatross), or null if there isn't one.
+  function albatrossFor(code: Ship[]): Ship[] | null {
+    const perms = (xs: Ship[]): Ship[][] => xs.length <= 1 ? [xs] : xs.flatMap((x, i) => perms([...xs.slice(0, i), ...xs.slice(i + 1)]).map((p) => [x, ...p]));
+    return perms(code).find((p) => p.every((ship, i) => ship !== code[i])) ?? null;
+  }
+
+  test('an albatross on the very first guess: a lobster, red in the Bay and blue in the Open Sea, counted', async () => {
+    let checked = 0;
+    for (const mode of ['easy', 'hard'] as DailyMode[]) {
+      const code = puzzleForDate(TODAY, mode).code;
+      const guess = albatrossFor(code);
+      if (!guess) continue; // a fleet of one ship type can't make an albatross
+      checked++;
+      const out = await api.submitGuess(newGame(TODAY, mode), guess);
+      expect(out.lobster).toBe(1);
+      expect((await extras())[mode === 'hard' ? 'bluelobster' : 'lobster'].count).toBe(1);
+      // Not on a later guess.
+      const later = { ...newGame(TODAY, mode), guesses: [code.map(() => code[0])], feedback: [] } as GameState;
+      expect((await api.submitGuess(later, guess)).lobster).toBe(undefined as unknown as number);
+    }
+    expect(checked).toBeGreaterThan(0);
+  });
+
+  test('a win on the very last row: a walrus (Bay) or a pink walrus (Open Sea), counted', async () => {
+    for (const mode of ['easy', 'hard'] as DailyMode[]) {
+      const f = finished('won', mode);
+      const out = await api.recordResult({ ...f, guesses: new Array(MODES[mode].maxGuesses).fill(f.guesses[0]) }, TODAY);
+      expect(out.walrus).toBe(1);
+    }
+    const x = await extras();
+    expect([x.walrus.count, x.pinkwalrus.count]).toEqual([1, 1]);
+    storage.clear();
+    expect((await winToday('easy')).walrus).toBe(undefined as unknown as number); // 3 of 6 rows
+  });
+
+  test('lost the first Keep trying too: a barnacle, once ever', async () => {
+    await api.recordResult(finished('lost'), TODAY);
+    const again = { ...finished('lost'), tries: [6] } as GameState;
+    expect((await api.recordResult(again, TODAY)).barnacle).toBe(true);
+    expect((await api.recordResult(again, TODAY)).barnacle).toBe(undefined as unknown as boolean);
+    expect((await extras()).barnacle.count).toBe(1);
+  });
+
+  test('five Bay wins in Past games: a starfish, once; five Open Sea: a sand dollar', async () => {
+    const past = (i: number, mode: DailyMode) => {
+      const s = newGame(addDays(TODAY, -i), mode);
+      const row = new Array(s.current.length).fill(0);
+      return { ...s, status: 'won', guesses: [row, row], feedback: [], answer: row } as GameState;
+    };
+    for (let i = 1; i <= 4; i++) expect((await api.recordResult(past(i, 'easy'), TODAY)).starfish).toBe(undefined as unknown as boolean);
+    await winToday('easy'); // today's own win isn't a Past game
+    expect((await api.recordResult(past(5, 'easy'), TODAY)).starfish).toBe(true);
+    expect((await api.recordResult(past(6, 'easy'), TODAY)).starfish).toBe(undefined as unknown as boolean);
+    for (let i = 1; i <= 5; i++) await api.recordResult(past(i, 'hard'), TODAY);
+    const x = await extras();
+    expect([x.starfish.count, x.sanddollar.count]).toEqual([1, 1]);
   });
 });

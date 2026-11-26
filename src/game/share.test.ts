@@ -25,10 +25,10 @@ describe('share', () => {
   });
   test('spyglasses show too, and their points count in the score', () => {
     const text = shareText({ dateKey: '2026-11-17', mode: 'hard', won: true, guesses: 5, hints: 0, spyglasses: 1, spyPoints: 2, creature: 'Turtle', streak: null, rows: null, perSpot: false });
-    expect(text).toBe('Fleet in the Fog · Nov 17 · Open sea\nSolved in 5/10 + 1 spyglass · Score 7 · Turtle sighted');
+    expect(text).toBe('Fleet in the Fog · Nov 17 · Open Sea\nSolved in 5/10 + 1 Spyglass · Score 7 · Turtle sighted');
   });
   test('a replayed day shares the outcome without a grid', () => {
     const text = shareText({ dateKey: '2026-11-17', mode: 'hard', won: false, guesses: 10, hints: 0, creature: null, streak: null, rows: null, perSpot: false });
-    expect(text).toBe('Fleet in the Fog · Nov 17 · Open sea\nThe fleet slipped away (10/10)');
+    expect(text).toBe('Fleet in the Fog · Nov 17 · Open Sea\nThe fleet slipped away (10/10)');
   });
 });

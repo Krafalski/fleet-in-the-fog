@@ -22,7 +22,7 @@ type Props = {
 
 export function WaveSlot({ ship, index, boatSize, label, next = false, onTap, locked = false, drag = null, dropTarget = false, note, movable = false }: Props) {
   const shipName = ship === null ? 'empty' : SHIP_NAMES[SHIP_KINDS[ship]];
-  const fullLabel = `${label}, ${shipName}${locked ? ', spotted by the spyglass, locked' : ''}${note ? `, ${NOTE_LABEL[note]}` : ''}${next ? ', next ship goes here' : ''}`;
+  const fullLabel = `${label}, ${shipName}${locked ? ', spotted by the Spyglass, locked' : ''}${note ? `, ${NOTE_LABEL[note]}` : ''}${next ? ', next ship goes here' : ''}`;
   const className = `slot${next ? ' slot--next' : ''}${locked ? ' slot--locked' : ''}${drag ? ' slot--dragging' : ''}${dropTarget ? ' slot--drop' : ''}${movable && onTap && ship !== null && !locked ? ' slot--movable' : ''}${!movable && onTap ? ' slot--notable' : ''}`;
   const style = { '--i': index } as CSSProperties;
 

@@ -22,7 +22,7 @@ export const MODE_LIST: DailyMode[] = ['easy', 'hard'];
 // Practice lets the player switch perSpot with a toggle; this is only its starting value.
 export const MODES: Record<Mode, { slots: number; ships: number; maxGuesses: number; perSpot: boolean; label: string }> = {
   easy: { slots: 4, ships: 6, maxGuesses: 6, perSpot: true, label: 'Bay' },
-  hard: { slots: 5, ships: 6, maxGuesses: 10, perSpot: false, label: 'Open sea' },
+  hard: { slots: 5, ships: 6, maxGuesses: 10, perSpot: false, label: 'Open Sea' },
   // Practice starts with marks under each ship (training wheels); its toggle can switch to totals.
   'practice-easy': { slots: 4, ships: 6, maxGuesses: 6, perSpot: true, label: 'Practice' },
   'practice-hard': { slots: 5, ships: 6, maxGuesses: 10, perSpot: true, label: 'Practice' },

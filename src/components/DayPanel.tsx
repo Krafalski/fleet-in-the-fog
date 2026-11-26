@@ -5,12 +5,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { Boat } from '../Boat';
 import { Trophy } from '../Trophy';
-import type { BadgeKind, BoatLook } from '../Boat';
+import type { BadgeKind } from '../Boat';
 import { Creature, CREATURE_LADDER, CREATURE_NAMES } from '../Creature';
 import { MOST_GUESSES_TRACKED, api } from '../api';
 import type { DayResult, DayStats, Outcome, RepairOffer } from '../api';
-import { BADGES, MILESTONES, ghostFor } from '../game/badges';
-import type { Milestone } from '../game/badges';
+import { BADGES, STEPS, TRACK_NAME, ghostFor, stepKey, stepToGo, trackFor } from '../game/badges';
+import type { Step, Wins } from '../game/badges';
 import { LAUNCH_DATE, MODES, gameScore } from '../game/game';
 import type { DailyMode, Mode } from '../game/game';
 import { totalGuesses } from '../game/reducer';
@@ -20,6 +20,11 @@ import { RepairCard } from './RepairCard';
 import { BookShape, ButtonIcon, LighthouseShape } from './TopBar';
 import { SHARE_MARKS, shareText } from '../game/share';
 import { formatDate } from '../game/dates';
+
+// The win card's boats flip by themselves: every AUTO_FLIP_MS, for AUTO_FLIP_ROUNDS times around.
+const AUTO_FLIP_MS = 3200;
+const AUTO_FLIP_ROUNDS = 3;
+const SAIL_OUT_MS = 320; // how long a boat takes to sail off the card before the next one sails in
 
 type Props = {
   state: GameState;          // the finished game
@@ -56,8 +61,9 @@ export function DayPanel({ state, outcome, today, onMode, onOpenLog, onOpenFleet
   const [day, setDay] = useState<Record<DailyMode, DayResult | undefined> | null>(null);
   const [streak, setStreak] = useState<number | null>(null);
   const [badges, setBadges] = useState<Record<string, string>>({}); // badge kind -> day earned
-  const [newColorsOn, setNewColorsOn] = useState<Record<string, string>>({}); // badge kind -> day its new colors came
-  const [years, setYears] = useState<Record<string, number>>({});
+  const [looksEarned, setLooksEarned] = useState<Record<string, string>>({});     // 'canoe:sea' -> day earned
+  const [looksEarnedBy, setLooksEarnedBy] = useState<Record<string, string>>({}); // 'canoe:sea' -> the game that earned it
+  const [wins, setWins] = useState<Wins>({ bay: 0, sea: 0 });
   const [trophy, setTrophy] = useState<string | null>(null);
   const [everyone, setEveryone] = useState<DayStats | null>(null);
   const [repairs, setRepairs] = useState<RepairStock>({ ones: 0, threes: 0 });
@@ -71,7 +77,7 @@ export function DayPanel({ state, outcome, today, onMode, onOpenLog, onOpenFleet
     api.loadProgress(today).then((p) => {
       if (cancelled) return;
       setStreak(p.streak); setBadges(p.badges); setRepairs(p.repairs); setOffer(p.repairOffer);
-      setNewColorsOn(p.newColorsOn); setYears(p.timesEarned); setTrophy(p.trophy);
+      setLooksEarned(p.looksEarned); setLooksEarnedBy(p.looksEarnedBy); setWins(p.wins); setTrophy(p.trophy);
     });
     api.loadDayStats(state.dateKey, state.mode).then((s) => { if (!cancelled) setEveryone(s); });
     return () => { cancelled = true; };
@@ -99,31 +105,58 @@ export function DayPanel({ state, outcome, today, onMode, onOpenLog, onOpenFleet
   // Spot 1: the creature for this score (guesses + hints). The seal covers 8 and up. Greyed out on a loss.
   const creature = CREATURE_LADDER.find((c) => c.score === Math.min(points, MOST_GUESSES_TRACKED)) ?? CREATURE_LADDER[0];
 
-  // Spot 2: a boat earned with this game, if there was one. BADGES is in earning order, so the last match is the biggest.
-  // Otherwise it shows the last streak boat the player earned, greyed out, with how far away the next one is.
-  // A player with no streak boats yet sees the first one they are working toward.
-  // Steps are ranked by the streak day that reaches them, so year-2 and year-3 colors count as steps too:
-  // on day 701 the newest step is the ocean liner's year-2 colors (day 690), not the golden galleon (day 360).
+  // Spot 2: a boat look earned with this game, if there was one. Each boat has a Bay look and an Open Sea look,
+  // in year 1 and year 2 (see game/badges.ts); a look needs that many wins in its game and a streak (up to 30 days).
+  // Otherwise it shows the last look earned in this game's track, greyed out, with what the next one needs.
   const earnedOn = counted?.playedOn;
-  const reachedToday: Milestone[] = earnedOn
-    ? MILESTONES.filter((m) => (m.year === 1 ? badges[m.kind] === earnedOn : newColorsOn[m.kind] === earnedOn && (years[m.kind] ?? 1) >= m.year))
-    : [];
+  const track = trackFor(state.mode as DailyMode);
+  const resultKey = `${state.dateKey}:${state.mode}`;
+  const reachedToday: Step[] = counted ? STEPS.filter((st) => looksEarnedBy[stepKey(st)] === resultKey) : [];
   // More than one step on the same day (a new boat and new colors, say): flip through them, biggest first.
   const [stepAt, setStepAt] = useState(0);
   const steps = [...reachedToday].reverse();
   const newStep = steps[Math.min(stepAt, steps.length - 1)];   // the one on the card
-  const flip = (by: number) => setStepAt((i) => (i + by + steps.length) % steps.length);
+  // Each flip sails the boat out (to the left going forward, like ships heading home) and the next one in.
+  // With two or more, it flips by itself a few times so nobody misses them, and stops for good the moment
+  // the player touches the card. Never on its own with "reduce motion" on.
+  const [sail, setSail] = useState<'' | 'out-left' | 'out-right' | 'in-right' | 'in-left'>('');
+  const sailTimer = useRef<number | undefined>(undefined);
+  const [autoFlip, setAutoFlip] = useState(true);
+  const flip = (by: number, byHand = true) => {
+    if (byHand) setAutoFlip(false);
+    window.clearTimeout(sailTimer.current);
+    setSail(by > 0 ? 'out-left' : 'out-right');
+    sailTimer.current = window.setTimeout(() => {
+      setStepAt((i) => (i + by + steps.length) % steps.length);
+      setSail(by > 0 ? 'in-right' : 'in-left');
+    }, SAIL_OUT_MS);
+  };
+  useEffect(() => {
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (!autoFlip || steps.length < 2 || reduced) return;
+    let flips = 0;
+    const timer = window.setInterval(() => {
+      flips += 1;
+      flip(1, false);
+      if (flips >= steps.length * AUTO_FLIP_ROUNDS) { window.clearInterval(timer); setAutoFlip(false); } // ends back on the first
+    }, AUTO_FLIP_MS);
+    return () => window.clearInterval(timer);
+  }, [autoFlip, steps.length]);
+  useEffect(() => () => window.clearTimeout(sailTimer.current), []);
   const swipeFrom = useRef<number | null>(null);
   const swiped = useRef(false); // a swipe ends in a click; this keeps it from opening the fleet
   // Only the game that was lost shows the ghost ship; a win on the same day shows the usual boat card.
-  // Bay losses bring the light ghost, Open sea losses the dark one.
+  // Bay losses bring the light ghost, Open Sea losses the dark one.
   const ghostToday = counted?.status === 'lost' && !!earnedOn && badges[ghostFor(state.mode as DailyMode)] === earnedOn;
   const ghost = BADGES.find((b) => b.days === null);
-  // Nothing new today: show the latest step reached, greyed, and how far the next one is.
-  const nextStep = streak !== null ? MILESTONES.find((m) => m.day > streak) : MILESTONES[0];
-  const lastStep = streak !== null ? [...MILESTONES].reverse().find((m) => m.day <= streak) : undefined;
-  const quietStep = lastStep ?? nextStep;
-  const lookFor = (year: number): BoatLook => (year >= 3 ? 'year3' : year === 2 ? 'year2' : 'color');
+  // Nothing new today: show the next look in this track, greyed, and what it still needs.
+  const inTrack = STEPS.filter((st) => st.track === track);
+  const nextStep = inTrack.find((st) => !looksEarned[stepKey(st)]);
+  const lastStep = [...inTrack].reverse().find((st) => looksEarned[stepKey(st)]);
+  const quietStep = nextStep ?? lastStep; // the boat being worked toward, greyed (or the last one, once all are in)
+  const toGo = nextStep && streak !== null ? stepToGo(nextStep, wins, streak) : null;
+  const plural = (n: number, one: string, many: string) => `${n} more ${n === 1 ? one : many}`;
+  const stepLabel = (st: Step) => (st.year === 1 ? `${TRACK_NAME[st.track]} · ${BADGES.find((b) => b.kind === st.kind)!.how}` : `${TRACK_NAME[st.track]} · ${st.look === 'gold' ? 'gold' : 'jewel tones'}`);
   const trophyToday = !!earnedOn && trophy === earnedOn;
   // Copy result: a spoiler-free grid for the day's thread. Hidden for Practice (it has no day to compare).
   const [copied, setCopied] = useState(false);
@@ -150,7 +183,6 @@ export function DayPanel({ state, outcome, today, onMode, onOpenLog, onOpenFleet
     window.setTimeout(() => setCopied(false), 2000);
   }
 
-  const daysToGo = nextStep && streak !== null ? nextStep.day - streak : null;
 
   return (
     <section className={`day-panel${still ? ' day-panel--still' : ''}`} aria-live="polite">
@@ -204,12 +236,16 @@ export function DayPanel({ state, outcome, today, onMode, onOpenLog, onOpenFleet
         ) : newStep && won ? (
           <div className="earned__slot earned__slot--tap is-lit" role="button" tabIndex={0} onClick={() => { if (swiped.current) { swiped.current = false; return; } onOpenFleet(newStep.kind); }}
             onKeyDown={(e) => { if (e.key === 'Enter') onOpenFleet(newStep.kind); if (steps.length > 1 && e.key === 'ArrowRight') flip(1); if (steps.length > 1 && e.key === 'ArrowLeft') flip(-1); }}
-            onPointerDown={(e) => { swipeFrom.current = e.clientX; }}
+            onPointerDown={(e) => { swipeFrom.current = e.clientX; setAutoFlip(false); }}
             onPointerUp={(e) => { const from = swipeFrom.current; swipeFrom.current = null; if (from !== null && steps.length > 1 && Math.abs(e.clientX - from) > 30) { swiped.current = true; flip(e.clientX < from ? 1 : -1); } }}>
-            <Boat key={`${newStep.kind}-${newStep.year}`} kind={newStep.kind as BadgeKind} look={lookFor(newStep.year)} size={1.4} />
+            <span className={`earned__sail${sail ? ` earned__sail--${sail}` : ''}`}>
+              <Boat key={stepKey(newStep)} kind={newStep.kind as BadgeKind} look={newStep.look} size={1.4} />
+            </span>
             <div>
-              <strong>{newStep.name}</strong>
-              <p>{newStep.year === 1 ? BADGES.find((b) => b.kind === newStep.kind)!.how : `New colors: year ${newStep.year}`}</p>
+              <span className={`earned__sail${sail ? ` earned__sail--${sail}` : ''}`}>
+                <strong>{newStep.name}</strong>
+                <p>{stepLabel(newStep)}</p>
+              </span>
               {steps.length > 1 && (
                 <span className="earned__flip" onClick={(e) => e.stopPropagation()}>
                   <button type="button" aria-label="Previous" onClick={() => flip(-1)}>‹</button>
@@ -231,12 +267,12 @@ export function DayPanel({ state, outcome, today, onMode, onOpenLog, onOpenFleet
           <div className="earned__slot earned__slot--tap" role="button" tabIndex={0} onClick={() => onOpenFleet(quietStep.kind)} onKeyDown={(e) => { if (e.key === 'Enter') onOpenFleet(quietStep.kind); }}>
             <Boat kind={quietStep.kind as BadgeKind} look="locked" size={1.4} />
             <div>
-              <strong>{quietStep.name}</strong>
+              <strong>{nextStep ? `Next ${TRACK_NAME[track]} boat: ${nextStep.name}${nextStep.year === 2 ? (nextStep.look === 'gold' ? ' in gold' : ' in jewel tones') : ''}` : quietStep.name}</strong>
               <p>
-                {!nextStep ? 'Every boat, every year: the whole fleet'
-                  : daysToGo !== null && daysToGo > 0
-                    ? `${daysToGo} ${daysToGo === 1 ? 'day' : 'days'} to ${nextStep.year === 1 ? `the ${nextStep.name.toLowerCase()}` : `new colors for the ${nextStep.name.toLowerCase()}`}`
-                    : `Next: ${nextStep.name.toLowerCase()}`}
+                {!nextStep ? `Every ${TRACK_NAME[track]} look, both years`
+                  : toGo && (toGo.wins > 0 || toGo.days > 0)
+                    ? [toGo.wins > 0 && plural(toGo.wins, `${TRACK_NAME[track]} win`, `${TRACK_NAME[track]} wins`), toGo.days > 0 && plural(toGo.days, 'day at sea', 'days at sea')].filter(Boolean).join(' · ')
+                    : 'Almost there'}
               </p>
             </div>
           </div>
@@ -244,12 +280,73 @@ export function DayPanel({ state, outcome, today, onMode, onOpenLog, onOpenFleet
       </div>
 
 
+      {/* The walrus: won on the very last row (grey in the Bay, pink in the Open Sea). */}
+      {outcome?.walrus !== undefined && (
+        <div className="trophy-card is-lit nautilus-card">
+          <Creature kind={state.mode === 'hard' ? 'pinkwalrus' : 'walrus'} size={1.1} />
+          <div>
+            <strong>{outcome.walrus > 1 ? 'Another' : 'A'} {state.mode === 'hard' ? 'pink walrus' : 'walrus'}!</strong>
+            <p>Phew. You found the fleet on the very last row.{outcome.walrus > 1 ? ` That's ${outcome.walrus} in your fleet.` : ''}</p>
+          </div>
+        </div>
+      )}
+      {/* The barnacle: lost the first Keep trying too. Once ever. */}
+      {outcome?.barnacle && (
+        <div className="trophy-card is-lit nautilus-card">
+          <Creature kind="barnacle" size={1.1} />
+          <div>
+            <strong>A barnacle!</strong>
+            <p>For sticking with it, no matter what. It's in your fleet now.</p>
+          </div>
+        </div>
+      )}
+      {/* The starfish and the sand dollar: the fifth Past games win in the Bay or the Open Sea. Once ever. */}
+      {(outcome?.starfish || outcome?.sanddollar) && (
+        <div className="trophy-card is-lit nautilus-card">
+          <Creature kind={outcome.starfish ? 'starfish' : 'sanddollar'} size={1.1} />
+          <div>
+            <strong>{outcome.starfish ? 'A starfish!' : 'A sand dollar!'}</strong>
+            <p>{outcome.starfish ? 'Five Bay wins' : 'Five Open Sea wins'} from Past games. Thanks for exploring the archive.</p>
+          </div>
+        </div>
+      )}
+      {/* The hermit crab: a win after Keep trying. */}
+      {outcome?.hermit !== undefined && (
+        <div className="trophy-card is-lit nautilus-card">
+          <Creature kind="hermit" size={1.1} />
+          <div>
+            <strong>{outcome.hermit > 1 ? 'Another hermit crab!' : 'A hermit crab!'}</strong>
+            <p>You kept trying and found the fleet, carrying all your old guesses along like a shell.{outcome.hermit > 1 ? ` That's ${outcome.hermit} in your fleet.` : ''}</p>
+          </div>
+        </div>
+      )}
+      {/* The crab: the Bay took more guesses than the Open Sea today. */}
+      {outcome?.crab !== undefined && (
+        <div className="trophy-card is-lit nautilus-card">
+          <Creature kind="crab" size={1.1} />
+          <div>
+            <strong>{outcome.crab > 1 ? 'Another crab!' : 'A crab!'}</strong>
+            <p>The Bay took more guesses than the Open Sea today. Sideways, but you got there.{outcome.crab > 1 ? ` That's ${outcome.crab} in your fleet.` : ''}</p>
+          </div>
+        </div>
+      )}
+      {/* The nautilus: this win matched the other game's score on the same puzzle day. */}
+      {outcome?.nautilus !== undefined && (
+        <div className="trophy-card is-lit nautilus-card">
+          <Creature kind="nautilus" size={1.1} />
+          <div>
+            <strong>{outcome.nautilus > 1 ? 'Another nautilus!' : 'A nautilus!'}</strong>
+            <p>The same score in the Bay and the Open Sea today: a perfect spiral.{outcome.nautilus > 1 ? ` That's ${outcome.nautilus} in your fleet.` : ''}</p>
+          </div>
+        </div>
+      )}
+
       {trophyToday && (
         <div className="trophy-card is-lit">
           <Trophy size={1.1} />
           <div>
             <strong>Fleet Admiral</strong>
-            <p>You are the fleet. Every boat, three years at sea, and one more day.</p>
+            <p>You are the fleet. Every boat, in all four looks.</p>
           </div>
         </div>
       )}
@@ -272,7 +369,7 @@ export function DayPanel({ state, outcome, today, onMode, onOpenLog, onOpenFleet
         {SHARE_MARKS.exact} right spot · {SHARE_MARKS.near} wrong spot · {SHARE_MARKS.miss} not in the fleet
       </p>
 
-      {!otherPlayed && <button type="button" className="primary-btn" onClick={() => onMode(other)}>{other === 'hard' ? 'Head out to the Open sea' : 'Back to the Bay'}</button>}
+      {!otherPlayed && <button type="button" className="primary-btn" onClick={() => onMode(other)}>{other === 'hard' ? 'Head out to the Open Sea' : 'Back to the Bay'}</button>}
 
       <div className="day-panel__more">
         <h3>Keep playing</h3>

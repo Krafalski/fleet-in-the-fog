@@ -35,7 +35,7 @@ export function shareText({ dateKey, mode, won, guesses, hints, spyglasses = 0, 
   const { slots, maxGuesses, label } = MODES[mode];
   const extras = [
     hints ? `${hints} ${hints === 1 ? 'lookout' : 'lookouts'}` : '',
-    spyglasses ? `${spyglasses} ${spyglasses === 1 ? 'spyglass' : 'spyglasses'}` : '',
+    spyglasses ? `${spyglasses} ${spyglasses === 1 ? 'Spyglass' : 'Spyglasses'}` : '',
   ].filter(Boolean);
   const lines = [`Fleet in the Fog · ${formatDate(dateKey, false)} · ${label}`];
   lines.push(won

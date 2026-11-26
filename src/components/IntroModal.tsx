@@ -48,7 +48,7 @@ export function IntroModal({ today, onPlay, startOn = 'front' }: { today: string
           <>
             <h2 id="intro-title">How to play</h2>
             <ol className="intro__rules">
-              <li>A fleet of ships is hidden in the fog: {MODES.easy.slots} ships in the <b>Bay</b> (easy), {MODES.hard.slots} on the <b>Open sea</b> (hard). To win, find which ships are in the fleet, and in which order. <b>Ships can repeat</b>: a fleet might have two of one kind, or even be all one kind.</li>
+              <li>A fleet of ships is hidden in the fog: {MODES.easy.slots} ships in the <b>Bay</b> (easy), {MODES.hard.slots} on the <b>Open Sea</b> (hard). To win, find which ships are in the fleet, and in which order. <b>Ships can repeat</b>: a fleet might have two of one kind, or even be all one kind.</li>
               <li>The foggy card at the top of the game is where the fleet hides. It isn't a hint: it lifts when you find the fleet.</li>
               <li>Tap a ship to put it in the row. Tap a placed ship to take it back, or drag it to another spot. When every spot is filled, press <b>Log guess</b>.</li>
               <li>
@@ -58,12 +58,12 @@ export function IntroModal({ today, onPlay, startOn = 'front' }: { today: string
                 <span className="intro__key">no anchor: not in the fleet</span>
               </li>
               <li>
-                On the <b>Open sea</b>, the same anchors (<i className="mini-anchor mini-anchor--exact"><MiniAnchor /></i><i className="mini-anchor mini-anchor--near"><MiniAnchor /></i>), come only as totals at the end of the row. They tell you <i>how many</i> ships are right, not <i>which</i> ones.
+                On the <b>Open Sea</b>, the same anchors (<i className="mini-anchor mini-anchor--exact"><MiniAnchor /></i><i className="mini-anchor mini-anchor--near"><MiniAnchor /></i>), come only as totals at the end of the row. They tell you <i>how many</i> ships are right, not <i>which</i> ones.
               </li>
               <li>Each row is another try at the same fleet.</li>
-              <li><b>Hints</b> cost points (lower scores are better): the <b>Lookout</b> rules out a ship that isn't in the fleet (+1), and on the Open sea the <b>Spyglass</b> finds a ship in the right spot (+2, or free with a golden one).</li>
+              <li><b>Hints</b> cost points (lower scores are better): the <b>Lookout</b> rules out a ship that isn't in the fleet (+1), and on the Open Sea the <b>Spyglass</b> finds a ship in the right spot (+2, or free with a golden one).</li>
               <li><b>Notes</b> (optional): tap a ship in a finished row to raise your own flag: <span className="intro__flag"><NoteFlag kind="exact" size={0.7} /></span> right here, <span className="intro__flag"><NoteFlag kind="near" size={0.7} /></span> somewhere else, <span className="intro__flag"><NoteFlag kind="no" size={0.7} /></span> not in the fleet. They're just for you. You can also <b>press and hold</b> a ship in the tray to grey it out when you think it isn't in the fleet (it stays pickable).</li>
-              <li>Solve it in {MODES.easy.maxGuesses} guesses ({MODES.hard.maxGuesses} on the Open sea). A new fleet comes in every day.</li>
+              <li>Solve it in {MODES.easy.maxGuesses} guesses ({MODES.hard.maxGuesses} on the Open Sea). A new fleet comes in every day.</li>
               <li>Out of guesses? <b>Keep trying</b> adds 10 more rows under your old ones. Your first result is the one that counts, so it's a safe way to learn.</li>
               <li className="intro__keys">On a keyboard: <kbd>Y</kbd> <kbd>P</kbd> <kbd>R</kbd> <kbd>G</kbd> <kbd>B</kbd> <kbd>C</kbd> place ships (the first letter of each color), <kbd>←</kbd> <kbd>→</kbd> choose a spot (a letter there swaps the ship), <kbd>Enter</kbd> logs the guess, <kbd>Backspace</kbd> clears a spot.</li>
             </ol>

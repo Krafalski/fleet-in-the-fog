@@ -1,14 +1,14 @@
 // Streak repair rules. Plain functions, no React and no storage.
 //
-// - Repairs come on days played 2 and 20, then 45, 75, 105… (every 30 days, halfway between the monthly boats),
-//   so they never land on the same day as a new streak boat.
+// - Repairs come on days played 4, 25 and 52, then 75, 105, 135… (every 30 days, halfway between the monthly boats),
+//   so they fill the gaps between boats and never land on the same day as one.
 // - The first three repairs ever earned mend one missed day each. Every repair after that mends up to three.
 // - Repairs can be combined to mend a longer gap, but the whole gap has to be covered.
 // - A mended day does not add to the streak. The streak picks up where it was before the gap.
 import { addDays } from './dates';
 
-export const FIRST_REPAIR_DAYS = [2, 20]; // early ones, so new players see a repair in the first weeks
-export const MONTHLY_REPAIR_FROM = 45;     // then one every 30 days from here
+export const FIRST_REPAIR_DAYS = [4, 25, 52]; // in the gaps between the early boats (3–7, 21–30, 45–60)
+export const MONTHLY_REPAIR_FROM = 75;         // then one every 30 days from here
 export const DAYS_PER_REPAIR = 30;
 export const SMALL_REPAIRS = 3;     // how many of the first repairs are the one-day kind
 export const BIG_REPAIR_DAYS = 3;   // days a later repair can mend

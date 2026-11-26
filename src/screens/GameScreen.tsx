@@ -12,6 +12,7 @@ import { Spyglass } from '../Spyglass';
 import { AnchorMark, Board, MiniAnchor as MiniAnchorIcon } from '../components/Board';
 import { DayPanel } from '../components/DayPanel';
 import { FogCard } from '../components/FogCard';
+import { Creature } from '../Creature';
 import { Scenery } from '../Scenery';
 import { ShipPicker } from '../components/ShipPicker';
 import { SHIP_KINDS, SHIP_NAMES } from '../Boat';
@@ -30,6 +31,8 @@ const BOAT_SIZE: Record<Mode, number> = { easy: 1.25, hard: 0.95, 'practice-easy
 // The end animation, then the result popup. A win turns quickly (0.25s) and sails slowly home (1.8s);
 // a loss shrinks into the fog faster.
 const ENDING_MS = { won: 2700, lost: 1900 } as const;
+// How long the albatross note floats over the fog card before it fades away.
+const ALBATROSS_MS = 6000;
 // Keyboard letters, in ship order: Yellow fisher, Purple junk, Red mailboat, Green schooner, Blue tug, Coral yacht.
 const SHIP_KEYS = ['y', 'p', 'r', 'g', 'b', 'c'];
 // How long "Already played" stays on the Log guess button.
@@ -72,6 +75,8 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
   // The albatross note: how many the player has sighted. null = no note; 0 = a Practice albatross (shown, not counted).
   // Stays until the next guess is logged.
   const [albatross, setAlbatross] = useState<number | null>(null);
+  const [lobster, setLobster] = useState<number | null>(null); // that albatross was the first guess: a lobster (how many)
+  const albatrossTimer = useRef<number | undefined>(undefined);
   const practice = isPractice(mode);
   // Practice sizes: remembered, so the Practice button goes back to the last one used.
   function openPractice(size: PracticeMode) {
@@ -110,9 +115,14 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
     }
     const guess = state.current as Ship[];
     const result = await api.submitGuess(state, guess);
-    const { albatross: sawAlbatross, ...scored } = result;
+    const { albatross: sawAlbatross, lobster: sawLobster, ...scored } = result;
+    setLobster(sawLobster ?? null);
     const action: Action = { type: 'GUESS_SCORED', guess, ...scored, carry: carry && state.perSpot };
     setAlbatross(sawAlbatross ?? null);
+    if (sawAlbatross !== undefined && sawAlbatross !== null) {
+      window.clearTimeout(albatrossTimer.current);
+      albatrossTimer.current = window.setTimeout(() => setAlbatross(null), ALBATROSS_MS);
+    }
     setSpyNote('');
     dispatch(action);
     if (result.status !== 'playing') {
@@ -148,10 +158,10 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
     // One line under the board. When the last golden one is gone, it also says when more come.
     const left = used.golden ? spy.goldenLeft - 1 : 0;
     const more = spy.nextBoat
-      ? `Next golden spyglass comes with the ${spy.nextBoat.name.toLowerCase()}, in ${spy.nextBoat.days} ${spy.nextBoat.days === 1 ? 'day' : 'days'}.`
+      ? `Next golden Spyglass comes with the ${spy.nextBoat.name.toLowerCase()}, in ${spy.nextBoat.days} ${spy.nextBoat.days === 1 ? 'day' : 'days'}.`
       : 'You have every boat, so no more golden ones.';
     setSpyNote(used.golden
-      ? `Spot ${used.spot + 1} locked in, free. ${left > 0 ? `${left} golden left.` : `That was your last golden spyglass. ${more}`}`
+      ? `Spot ${used.spot + 1} locked in, free. ${left > 0 ? `${left} golden left.` : `That was your last golden Spyglass. ${more}`}`
       : `Spot ${used.spot + 1} locked in, +${used.cost} to your score.${practice || state.rounds > 1 ? '' : ` No golden ones left. ${more}`}`);
   }
 
@@ -277,7 +287,7 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
   const scoreLine = (guesses: number) => {
     const extras = [
       state.hintsUsed ? `${state.hintsUsed} ${state.hintsUsed === 1 ? 'lookout' : 'lookouts'}` : '',
-      state.spyglasses ? `${state.spyglasses} ${state.spyglasses === 1 ? 'spyglass' : 'spyglasses'}` : '',
+      state.spyglasses ? `${state.spyglasses} ${state.spyglasses === 1 ? 'Spyglass' : 'Spyglasses'}` : '',
     ].filter(Boolean);
     return extras.length
       ? `Solved in ${guesses} + ${extras.join(' + ')} · Score ${gameScore(guesses, state.hintsUsed, state.spyglassPoints ?? 0)}`
@@ -418,7 +428,7 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
           ? 'Practice: a new fleet every game. It doesn’t count toward badges.'
           : mode === 'easy'
             ? 'Bay (easy): an anchor under each ship tells you about that ship. Ships can repeat.'
-            : 'Open sea (hard): anchors at the end of each row are totals, in no order. Ships can repeat.'}
+            : 'Open Sea (hard): anchors at the end of each row are totals, in no order. Ships can repeat.'}
       </p>
 
 
@@ -430,22 +440,31 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
           </button>
           <FogCard state={state} boatSize={BOAT_SIZE[mode]} />
           <button type="button" className={`size-side${mode === 'practice-hard' ? ' is-on' : ''}`} aria-pressed={mode === 'practice-hard'} onClick={() => openPractice('practice-hard')}>
-            <span>Open sea</span><small>{MODES['practice-hard'].slots} ships</small>
+            <span>Open Sea</span><small>{MODES['practice-hard'].slots} ships</small>
           </button>
         </div>
       ) : (
         <FogCard state={state} boatSize={BOAT_SIZE[mode]} />
       )}
+      {/* The albatross note floats over the fog card instead of taking up space, so the board never moves.
+          It fades away by itself after a few seconds, or with a tap. */}
+      <div className="albatross-anchor">
       {albatross !== null && (
-        <div className="albatross-note" role="status">
-          <Scenery kind="albatross" size={0.9} />
-          {albatross === 0
+        <div className="albatross-note" role="status" onClick={() => setAlbatross(null)} title="Tap to close">
+          {lobster !== null
+            ? <Creature kind={state.mode === 'hard' ? 'bluelobster' : 'lobster'} size={0.9} />
+            : <Scenery kind="albatross" size={0.9} />}
+          {lobster !== null
+            ? <p><strong>{lobster > 1 ? 'Another' : 'A'} {state.mode === 'hard' ? 'blue' : 'red'} lobster!</strong> An albatross on your very first guess: every ship right, every spot wrong.{lobster > 1 ? ` That's ${lobster} in your fleet.` : " It's in your fleet now."}</p>
+            : albatross === 0
             ? <p><strong>An albatross!</strong> Every ship right, every spot wrong. Practice albatrosses are just for fun: they aren't added to your fleet.</p>
             : albatross === 1
             ? <p><strong>An albatross!</strong> Every ship right, every spot wrong. It's in your fleet now.</p>
             : <p><strong>Another albatross!</strong> Every ship right, every spot wrong. That's {albatross} in your fleet.</p>}
+          <span className="albatross-note__x" aria-hidden="true">✕</span>
         </div>
       )}
+      </div>
 
       {practice ? (
         <>

@@ -10,7 +10,8 @@
 // The server runs puzzleForDate() and score(), saves to Redis, and sends back only the feedback.
 // Nothing else in the app has to change.
 import { addDays } from './game/dates';
-import { BADGES, TROPHY_DAYS, yearsEarned, badgesForStreak, computeStreak, ghostFor } from './game/badges';
+import { BADGES, STEPS, computeStreak, ghostFor, stepKey, stepsReady, trackFor } from './game/badges';
+import type { Wins } from './game/badges';
 import type { BoatLook } from './Boat';
 import { testGame } from './config';
 import { GOLDEN_PER_BOAT, LAUNCH_DATE, MODES, MODE_LIST, SPYGLASS_COST, dateKeyFor, gameScore, isPractice, isWin, nextHint, puzzleForDate, score, scoreSpots, spyglassSpot } from './game/game';
@@ -22,7 +23,8 @@ import type { GameState, Status } from './game/reducer';
 
 // albatross: set when this guess was an albatross; the number is how many the player has sighted, this one included.
 // In Practice an albatross is just for fun: albatross is 0 (shown, never counted).
-export type GuessResult = { feedback: Feedback; status: Status; answer: Ship[] | null; albatross?: number };
+// lobster: set when that albatross was the game's very first guess (red in the Bay, blue in the Open Sea); how many of that color.
+export type GuessResult = { feedback: Feedback; status: Status; answer: Ship[] | null; albatross?: number; lobster?: number };
 
 // One finished puzzle.
 export type DayResult = {
@@ -40,11 +42,24 @@ export type DayResult = {
 export type Progress = {
   streak: number;
   badges: Record<string, string>;      // badge kind -> day first earned
-  timesEarned: Record<string, number>; // badge kind -> how many years it has been earned (1 to 3); sets how many colorways are unlocked
-  newColorsOn: Record<string, string>; // badge kind -> the day its latest colorway (year 2 or 3) was unlocked
+  // Each boat's looks (Bay / Open Sea, year 1 / year 2), keyed 'canoe:sea' -> the day it was earned.
+  looksEarned: Record<string, string>;
+  // The game result that earned each look ('2026-11-25:hard'), so a results card only shows its own.
+  looksEarnedBy: Record<string, string>;
+  wins: Wins;                          // same-day daily wins, forever: { bay: 25, sea: 5 }
   trophy: string | null;               // the day the Fleet Admiral cup was earned, or null
   albatross: string | null;            // the day the albatross was first sighted, or null
   albatrossCount: number;              // how many albatrosses the player has sighted
+  nautilus: string | null;             // the puzzle day of the first nautilus (same score in the Bay and the Open Sea), or null
+  nautilusCount: number;               // how many the player has sighted
+  compass: string | null;              // the day the compass was found (by reading "How to build your fleet"), or null
+  crab: string | null;                 // the puzzle day of the first crab (Bay took more guesses than the Open Sea), or null
+  crabCount: number;
+  hermit: string | null;               // the day of the first hermit crab (a win after Keep trying), or null
+  hermitCount: number;
+  // The rest of the sea's special sightings: when first seen (null = not yet) and how many.
+  // barnacle, starfish and sanddollar are one-time; the lobsters and walruses count up.
+  extras: Record<ExtraKind, { first: string | null; count: number }>;
   goldenSpyglasses: number;            // golden (free) spyglasses ready to use
   looks: Record<string, BoatLook>;     // badge kind -> the colorway the player chose to show
   repairs: RepairStock;                // streak repairs the player has, ready to use
@@ -53,7 +68,15 @@ export type Progress = {
 };
 // A streak that can be mended: how many days were missed, what it costs, and the streak the player gets back.
 export type RepairOffer = { missedDays: number; cost: RepairStock; streakAfter: number };
-export type Outcome = { streak: number; newBadges: string[] };
+// nautilus: set when this win matched the other game's score on the same puzzle day; how many the player has sighted.
+// crab: set when this win finished a day where the Bay took more guesses than the Open Sea; how many sighted.
+// hermit: set when this was a win after Keep trying; how many sighted.
+// barnacle / starfish / sanddollar: true when this game earned that one-time sighting.
+// walrus: set when this was a win on the very last row of the first try; how many of that walrus (Bay grey, Open Sea pink).
+export type Outcome = {
+  streak: number; newBadges: string[]; nautilus?: number; crab?: number; hermit?: number;
+  barnacle?: boolean; starfish?: boolean; sanddollar?: boolean; walrus?: number;
+};
 export type DayStats = { average: number; players: number };
 
 // Numbers for the fleet screen. Averages count solved puzzles only; null = nothing to average yet.
@@ -109,6 +132,8 @@ export type GameApi = {
   useRepair(today: string): Promise<Outcome>;
   // Remember which colorway the player wants a boat shown in.
   saveBoatLook(kind: string, look: BoatLook): Promise<void>;
+  // The compass: found once, by keeping "How to build your fleet" open for a few seconds. True the first time.
+  findCompass(today: string): Promise<boolean>;
   // Everyone's average for a day. Needs the server; the local version has nothing to offer.
   loadDayStats(dateKey: string, mode: Mode): Promise<DayStats | null>;
   // Post the player's note as a Reddit comment. Needs the server.
@@ -154,14 +179,16 @@ export function addRepairs(ones: number, threes: number) {
 // Earning a boat again in a later year is not built yet, so a real boat counts as earned once.
 // In test games every earned boat counts three times, so the colorway switching can be tried.
 // badge kind -> how many years of colors it has earned (1 to 3). Kept even if the streak later breaks.
-const YEARS_KEY = `${STORE}:years`;
-const YEARS_ON_KEY = `${STORE}:yearsOn`; // badge kind -> day its latest colors unlocked
+const YEARS_KEY = `${STORE}:years`;       // older saves: badge kind -> years earned (moved into BOAT_LOOKS_KEY)
+const YEARS_ON_KEY = `${STORE}:yearsOn`;
+const BOAT_LOOKS_KEY = `${STORE}:boatLooks`;     // { 'canoe:color': '2026-11-15', 'canoe:sea': '2026-11-20' }
+const BOAT_LOOKS_BY_KEY = `${STORE}:boatLooksBy`; // { 'canoe:sea': '2026-11-20:hard' }
 const TROPHY_KEY = `${STORE}:trophy`;     // the day the Fleet Admiral cup was earned
 // The albatross: a daily guess with every ship right and every one in the wrong spot.
 // Sighted every time it happens; each sighting is saved as the day it happened.
 const ALBATROSS_KEY = `${STORE}:albatross`;     // older saves: only the day of the first one
 const ALBATROSSES_KEY = `${STORE}:albatrosses`; // ['2026-11-15', '2026-11-20', ...]
-// Golden spyglasses: 2 earned with every streak boat. Saved: the ones used (day and mode), and any added for testing.
+// Golden Spyglasses: 2 earned with every streak boat. Saved: the ones used (day and mode), and any added for testing.
 const SPYGLASS_KEY = `${STORE}:spyglass`;
 type SpyglassSaved = { added: number; used: { day: string; mode: DailyMode }[] };
 const readSpyglass = () => read<SpyglassSaved>(SPYGLASS_KEY, { added: 0, used: [] });
@@ -175,10 +202,41 @@ function goldenLeft(): number {
 const spyglassAllowed = (state: GameState) => state.status === 'playing' && !state.perSpot && (state.mode === 'hard' || isPractice(state.mode));
 // Golden ones are only spent on a daily game's first try: Practice and Replays don't count, so they always cost points instead.
 const spendsGolden = (state: GameState) => !isPractice(state.mode) && state.rounds === 1;
-// Testing (?add-golden-spyglass=3): add golden spyglasses.
+// Testing (?add-golden-spyglass=3): add golden Spyglasses.
 export function addGoldenSpyglasses(n: number) {
   const saved = readSpyglass();
   write(SPYGLASS_KEY, { ...saved, added: saved.added + n });
+}
+// The nautilus: the Bay and the Open Sea won with the same score on the same puzzle day. Counted, like the albatross.
+const NAUTILUS_KEY = `${STORE}:nautilus`; // ['2026-11-26', ...] puzzle days
+const COMPASS_KEY = `${STORE}:compass`;   // the day it was found
+const readNautilus = () => read<string[]>(NAUTILUS_KEY, []);
+// The crab: both games won on one puzzle day, and the Bay took more guesses than the Open Sea. Guesses only, not score,
+// so a hint can't buy one. The hermit crab: a daily win after Keep trying (it carries its old rows like a shell).
+const CRAB_KEY = `${STORE}:crab`;     // ['2026-11-26', ...] puzzle days
+const HERMIT_KEY = `${STORE}:hermit`; // ['2026-11-26:easy', ...] games
+const readCrabs = () => read<string[]>(CRAB_KEY, []);
+const readHermits = () => read<string[]>(HERMIT_KEY, []);
+// The barnacle: lost the first Keep trying too (one-time). The starfish and the sand dollar: 5 Bay or 5 Open Sea
+// wins in Past games, the first win on each past day (one-time, so a year of archive play earns the same one).
+// The lobsters: an albatross on the very first guess (red Bay, blue Open Sea). The walruses: a win on the very
+// last row of the first try (grey Bay, pink Open Sea). Lobsters and walruses count up; nobody needs to chase them.
+export type ExtraKind = 'barnacle' | 'starfish' | 'sanddollar' | 'lobster' | 'bluelobster' | 'walrus' | 'pinkwalrus';
+export const EXTRA_KINDS: ExtraKind[] = ['barnacle', 'starfish', 'sanddollar', 'lobster', 'bluelobster', 'walrus', 'pinkwalrus'];
+export const ARCHIVE_WINS_NEEDED = 5;
+const EXTRAS_KEY = `${STORE}:extras`; // { lobster: ['2026-11-26:easy', ...], barnacle: ['2026-11-26:easy'], ... }
+const readExtras = () => read<Partial<Record<ExtraKind, string[]>>>(EXTRAS_KEY, {});
+// Adds one sighting (once per game key) and returns how many of that kind there are now.
+function sightExtra(kind: ExtraKind, key: string): number {
+  const all = readExtras();
+  const list = all[kind] ?? [];
+  if (!list.includes(key)) write(EXTRAS_KEY, { ...all, [kind]: [...list, key] });
+  return (readExtras()[kind] ?? []).length;
+}
+const hasExtra = (kind: ExtraKind) => (readExtras()[kind] ?? []).length > 0;
+function sight(key: string, item: string, list: string[]): number {
+  if (!list.includes(item)) write(key, [...list, item]);
+  return read<string[]>(key, []).length;
 }
 function readAlbatrosses(): string[] {
   const list = read<string[] | null>(ALBATROSSES_KEY, null);
@@ -219,28 +277,53 @@ function repairState(results: Record<string, DayResult>, today: string) {
   return { repairs, nextRepairIn: daysToNextRepair(daysPlayed), offer, gap, used };
 }
 
-// Hands out any streak boats the player's streak has reached but they do not have yet.
-function awardStreakBadges(streak: number, today: string, extra: string[] = []): string[] {
+// Same-day daily wins in each game, counted forever (they never reset when a streak breaks).
+// Past days played later don't count, the same as for the streak.
+function winsFrom(results: Record<string, DayResult>): Wins {
+  const wins: Wins = { bay: 0, sea: 0 };
+  for (const r of Object.values(results)) if (r.status === 'won' && r.playedOn === r.dateKey) wins[trackFor(r.mode)]++;
+  return wins;
+}
+
+// The looks each boat has been earned in. Older saves (one streak, yearly colors) are carried over once:
+// an earned boat keeps its own colors, and its old second-year colors (inverse) become its Open Sea look.
+function readBoatLooks(): Record<string, string> {
+  const saved = read<Record<string, string> | null>(BOAT_LOOKS_KEY, null);
+  if (saved) return saved;
   const badges = read<Record<string, string>>(BADGES_KEY, {});
-  const newBadges = [...badgesForStreak(streak), ...extra].filter((kind) => !badges[kind]);
-  for (const kind of newBadges) badges[kind] = today;
-  if (newBadges.length) write(BADGES_KEY, badges);
-  // Second and third years: a long enough streak unlocks each boat's next colorway.
   const years = read<Record<string, number>>(YEARS_KEY, {});
   const yearsOn = read<Record<string, string>>(YEARS_ON_KEY, {});
-  let changed = false;
-  for (const badge of BADGES) {
-    if (badge.days === null) continue;
-    const now = yearsEarned(badge.days, streak);
-    if (now > (years[badge.kind] ?? 0)) {
-      if (now > 1) yearsOn[badge.kind] = today; // year 1 is the boat itself; only new colors are dated here
-      years[badge.kind] = now;
-      changed = true;
-    }
+  const looks: Record<string, string> = {};
+  for (const b of BADGES) {
+    if (b.days === null || !badges[b.kind]) continue;
+    looks[`${b.kind}:color`] = badges[b.kind];
+    if ((years[b.kind] ?? 1) >= 2) looks[`${b.kind}:sea`] = yearsOn[b.kind] ?? badges[b.kind];
   }
-  if (changed) { write(YEARS_KEY, years); write(YEARS_ON_KEY, yearsOn); }
-  // The final award, once.
-  if (streak >= TROPHY_DAYS && !read<string | null>(TROPHY_KEY, null)) write(TROPHY_KEY, today);
+  return looks;
+}
+
+// Hands out every boat look the player's wins and streak have reached but they don't have yet,
+// plus `extra` badges (the ghost ships). `by` is the game result that did it.
+function awardStreakBadges(streak: number, today: string, extra: string[] = [], by = ''): string[] {
+  const results = read<Record<string, DayResult>>(RESULTS_KEY, {});
+  const wins = winsFrom(results);
+  const looks = readBoatLooks();
+  const lookBy = read<Record<string, string>>(BOAT_LOOKS_BY_KEY, {});
+  const badges = read<Record<string, string>>(BADGES_KEY, {});
+  const newBadges: string[] = [];
+  for (const step of stepsReady(wins, streak)) {
+    const key = stepKey(step);
+    if (looks[key]) continue;
+    looks[key] = today;
+    lookBy[key] = by;
+    if (!badges[step.kind]) { badges[step.kind] = today; newBadges.push(step.kind); } // the boat's first look brings the boat
+  }
+  for (const kind of extra) if (!badges[kind]) { badges[kind] = today; newBadges.push(kind); }
+  write(BOAT_LOOKS_KEY, looks);
+  write(BOAT_LOOKS_BY_KEY, lookBy);
+  write(BADGES_KEY, badges);
+  // The final award, once: every boat in all four looks.
+  if (STEPS.every((st) => looks[stepKey(st)]) && !read<string | null>(TROPHY_KEY, null)) write(TROPHY_KEY, today);
   // Keep them in ladder order, so the biggest one comes last.
   newBadges.sort((a, b) => BADGES.findIndex((x) => x.kind === a) - BADGES.findIndex((x) => x.kind === b));
   return newBadges;
@@ -288,7 +371,12 @@ export const localApi: GameApi = {
         albatross = seen.length;
       }
     }
-    return { feedback, status, answer: status === 'playing' ? null : code, albatross };
+    // ...and on the very first guess of the game: a lobster.
+    let lobster: number | undefined;
+    if (albatross && state.guesses.length === 0 && !(state.tries ?? []).length) {
+      lobster = sightExtra(state.mode === 'hard' ? 'bluelobster' : 'lobster', `${state.dateKey}:${state.mode}`);
+    }
+    return { feedback, status, answer: status === 'playing' ? null : code, albatross, lobster };
   },
 
   async askHint(state) {
@@ -327,9 +415,15 @@ export const localApi: GameApi = {
   async recordResult(state, today) {
     const results = read<Record<string, DayResult>>(RESULTS_KEY, {});
     const key = `${state.dateKey}:${state.mode}`;
+    // A win after Keep trying: a hermit crab. The day's result stays the first try's (the loss).
+    const hermit = state.status === 'won' && (state.tries ?? []).length > 0 && !isPractice(state.mode)
+      ? sight(HERMIT_KEY, key, readHermits()) : undefined;
+    // Lost the first Keep trying too: a barnacle, for sticking with it no matter what. Once ever.
+    const barnacle = state.status === 'lost' && (state.tries ?? []).length === 1 && !isPractice(state.mode) && !hasExtra('barnacle')
+      ? (sightExtra('barnacle', key), true) : undefined;
     // Practice never counts.
     if (state.status === 'playing' || results[key] || isPractice(state.mode)) {
-      return { streak: streakFrom(results, today), newBadges: [] }; // nothing new to record
+      return { streak: streakFrom(results, today), newBadges: [], hermit, barnacle }; // nothing new to record
     }
     results[key] = {
       dateKey: state.dateKey, mode: state.mode as DailyMode, status: state.status,
@@ -339,7 +433,37 @@ export const localApi: GameApi = {
     write(RESULTS_KEY, results);
 
     const streak = streakFrom(results, today);
-    return { streak, newBadges: awardStreakBadges(streak, today, state.status === 'lost' ? [ghostFor(state.mode as DailyMode)] : []) };
+    const newBadges = awardStreakBadges(streak, today, state.status === 'lost' ? [ghostFor(state.mode as DailyMode)] : [], key);
+    // Both games of the same puzzle day won with the same score: a nautilus.
+    const other = results[`${state.dateKey}:${state.mode === 'easy' ? 'hard' : 'easy'}`];
+    let nautilus: number | undefined;
+    if (state.status === 'won' && other?.status === 'won' && resultScore(other) === resultScore(results[key])) {
+      const seen = readNautilus();
+      if (!seen.includes(state.dateKey)) write(NAUTILUS_KEY, [...seen, state.dateKey]);
+      nautilus = readNautilus().length;
+    }
+    // Both won, and the Bay took more guesses than the Open Sea: a crab.
+    let crab: number | undefined;
+    const bay = results[`${state.dateKey}:easy`], sea = results[`${state.dateKey}:hard`];
+    if (state.status === 'won' && bay?.status === 'won' && sea?.status === 'won' && bay.guesses > sea.guesses) {
+      crab = sight(CRAB_KEY, state.dateKey, readCrabs());
+    }
+    // A win on the very last row of the first try: a walrus (phew).
+    let walrus: number | undefined;
+    if (state.status === 'won' && !(state.tries ?? []).length && state.guesses.length === MODES[state.mode].maxGuesses) {
+      walrus = sightExtra(state.mode === 'hard' ? 'pinkwalrus' : 'walrus', key);
+    }
+    // The fifth Past games win in this game: a starfish (Bay) or a sand dollar (Open Sea). Once ever.
+    let starfish: boolean | undefined, sanddollar: boolean | undefined;
+    if (state.status === 'won' && today !== state.dateKey) {
+      const kind: ExtraKind = state.mode === 'hard' ? 'sanddollar' : 'starfish';
+      const pastWins = Object.values(results).filter((r) => r.mode === state.mode && r.status === 'won' && r.playedOn !== r.dateKey).length;
+      if (pastWins >= ARCHIVE_WINS_NEEDED && !hasExtra(kind)) {
+        sightExtra(kind, key);
+        if (kind === 'starfish') starfish = true; else sanddollar = true;
+      }
+    }
+    return { streak, newBadges, nautilus, crab, hermit, walrus, starfish, sanddollar };
   },
 
   async loadResults(dateKeys, mode) {
@@ -389,19 +513,28 @@ export const localApi: GameApi = {
 
   async loadProgress(today) {
     const badges = read<Record<string, string>>(BADGES_KEY, {});
-    const timesEarned: Record<string, number> = {};
-    const years = read<Record<string, number>>(YEARS_KEY, {});
-    for (const kind of Object.keys(badges)) timesEarned[kind] = Math.max(1, years[kind] ?? 1);
     const results = read<Record<string, DayResult>>(RESULTS_KEY, {});
     const { repairs, nextRepairIn, offer } = repairState(results, today);
     return {
       streak: streakFrom(results, today),
       badges,
-      timesEarned,
-      newColorsOn: read<Record<string, string>>(YEARS_ON_KEY, {}),
+      looksEarned: readBoatLooks(),
+      looksEarnedBy: read<Record<string, string>>(BOAT_LOOKS_BY_KEY, {}),
+      wins: winsFrom(results),
       trophy: read<string | null>(TROPHY_KEY, null),
       albatross: readAlbatrosses()[0] ?? null,
       albatrossCount: readAlbatrosses().length,
+      nautilus: [...readNautilus()].sort()[0] ?? null,
+      nautilusCount: readNautilus().length,
+      compass: read<string | null>(COMPASS_KEY, null),
+      crab: [...readCrabs()].sort()[0] ?? null,
+      crabCount: readCrabs().length,
+      hermit: [...readHermits()].sort()[0]?.split(':')[0] ?? null,
+      hermitCount: readHermits().length,
+      extras: Object.fromEntries(EXTRA_KINDS.map((kind) => {
+        const list = readExtras()[kind] ?? [];
+        return [kind, { first: [...list].sort()[0]?.split(':')[0] ?? null, count: list.length }];
+      })) as Progress['extras'],
       goldenSpyglasses: goldenLeft(),
       looks: read<Record<string, BoatLook>>(LOOKS_KEY, {}),
       repairs,
@@ -422,6 +555,12 @@ export const localApi: GameApi = {
     // The streak is back where it was, plus any days played since. That can be enough for a new boat.
     const streak = streakFrom(results, today);
     return { streak, newBadges: awardStreakBadges(streak, today) };
+  },
+
+  async findCompass(today) {
+    if (read<string | null>(COMPASS_KEY, null)) return false;
+    write(COMPASS_KEY, today);
+    return true;
   },
 
   async saveBoatLook(kind, look) {
@@ -450,28 +589,28 @@ export function resetToday(today: string, modes: DailyMode[] = ['easy', 'hard'])
   const results = read<Record<string, DayResult>>(RESULTS_KEY, {});
   for (const mode of modes) delete results[`${today}:${mode}`];
   write(RESULTS_KEY, results);
-  // Golden spyglasses used today in these games come back.
+  // Golden Spyglasses used today in these games come back.
   const spy = readSpyglass();
   write(SPYGLASS_KEY, { ...spy, used: spy.used.filter((u) => !(u.day === today && modes.includes(u.mode))) });
   if (Object.keys(results).some((key) => key.startsWith(`${today}:`))) return;
   const badges = read<Record<string, string>>(BADGES_KEY, {});
   for (const kind of Object.keys(badges)) if (badges[kind] === today) delete badges[kind];
   write(BADGES_KEY, badges);
-  // New colors unlocked today go back one year; a trophy earned today is taken back.
-  const years = read<Record<string, number>>(YEARS_KEY, {});
-  const yearsOn = read<Record<string, string>>(YEARS_ON_KEY, {});
-  for (const kind of Object.keys(yearsOn)) {
-    if (yearsOn[kind] !== today) continue;
-    years[kind] = Math.max(1, (years[kind] ?? 2) - 1);
-    delete yearsOn[kind];
-  }
-  // Year-1 entries for boats taken back above go too.
-  for (const kind of Object.keys(years)) if (!badges[kind]) delete years[kind];
-  write(YEARS_KEY, years);
-  write(YEARS_ON_KEY, yearsOn);
+  // Boat looks earned today are taken back as well.
+  const looks = readBoatLooks();
+  const lookBy = read<Record<string, string>>(BOAT_LOOKS_BY_KEY, {});
+  for (const key of Object.keys(looks)) if (looks[key] === today) { delete looks[key]; delete lookBy[key]; }
+  write(BOAT_LOOKS_KEY, looks);
+  write(BOAT_LOOKS_BY_KEY, lookBy);
   if (read<string | null>(TROPHY_KEY, null) === today) localStorage.removeItem(TROPHY_KEY);
   if (read<string | null>(ALBATROSS_KEY, null) === today) localStorage.removeItem(ALBATROSS_KEY);
   write(ALBATROSSES_KEY, readAlbatrosses().filter((day) => day !== today));
+  write(NAUTILUS_KEY, readNautilus().filter((day) => day !== today));
+  write(CRAB_KEY, readCrabs().filter((day) => day !== today));
+  write(HERMIT_KEY, readHermits().filter((game) => !modes.some((mode) => game === `${today}:${mode}`)));
+  const extras = readExtras();
+  for (const kind of EXTRA_KINDS) if (extras[kind]) extras[kind] = extras[kind]!.filter((game) => !modes.some((mode) => game === `${today}:${mode}`));
+  write(EXTRAS_KEY, extras);
 }
 // Forget everything this game has saved (only the test games when the test game is on).
 export function resetAll() {

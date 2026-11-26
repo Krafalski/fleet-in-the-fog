@@ -5,27 +5,32 @@ import { daysCovered, daysToNextRepair, findGap, pickRepairs, repairCount, repai
 const days = (...list: string[]) => new Set(list.map((d) => `2026-11-${d}`));
 
 describe('earning repairs', () => {
-  test('days 2 and 20, then 45, 75, 105…; the first three are one-day, later ones three-day', () => {
-    expect(repairsEarned(1)).toEqual({ ones: 0, threes: 0 });
-    expect(repairsEarned(2)).toEqual({ ones: 1, threes: 0 });
-    expect(repairsEarned(19)).toEqual({ ones: 1, threes: 0 });
-    expect(repairsEarned(20)).toEqual({ ones: 2, threes: 0 });
-    expect(repairsEarned(44)).toEqual({ ones: 2, threes: 0 });
-    expect(repairsEarned(45)).toEqual({ ones: 3, threes: 0 });
+  test('days 4, 25 and 52, then 75, 105…; the first three are one-day, later ones three-day', () => {
+    expect(repairsEarned(3)).toEqual({ ones: 0, threes: 0 });
+    expect(repairsEarned(4)).toEqual({ ones: 1, threes: 0 });
+    expect(repairsEarned(24)).toEqual({ ones: 1, threes: 0 });
+    expect(repairsEarned(25)).toEqual({ ones: 2, threes: 0 });
+    expect(repairsEarned(52)).toEqual({ ones: 3, threes: 0 });
+    expect(repairsEarned(74)).toEqual({ ones: 3, threes: 0 });
     expect(repairsEarned(75)).toEqual({ ones: 3, threes: 1 });
-    expect(repairsEarned(150)).toEqual({ ones: 3, threes: 3 });
+    expect(repairsEarned(165)).toEqual({ ones: 3, threes: 4 });
   });
 
-  test('never on the same day as a streak boat (30, 60, 90…)', () => {
-    for (let d = 30; d <= 360; d += 30) expect(repairCount(d)).toBe(repairCount(d - 1));
+  test('never on the same day as a streak boat', async () => {
+    const { BADGES } = await import('./badges');
+    for (const b of BADGES) if (b.days !== null && b.days > 1) expect(repairCount(b.days)).toBe(repairCount(b.days - 1));
   });
 
   test('days to the next repair', () => {
-    expect(daysToNextRepair(0)).toBe(2);
-    expect(daysToNextRepair(2)).toBe(18);
-    expect(daysToNextRepair(20)).toBe(25);
-    expect(daysToNextRepair(45)).toBe(30);
-    expect(daysToNextRepair(70)).toBe(5);
+    expect(daysToNextRepair(0)).toBe(4);
+    expect(daysToNextRepair(4)).toBe(21);
+    expect(daysToNextRepair(25)).toBe(27);
+    expect(daysToNextRepair(52)).toBe(23);
+    expect(daysToNextRepair(75)).toBe(30);
+    expect(daysToNextRepair(100)).toBe(5);
+  });
+
+  test('how many days a pile of repairs can mend', () => {
     expect(daysCovered({ ones: 3, threes: 2 })).toBe(9);
   });
 });

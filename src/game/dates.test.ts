@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { MILESTONES, badgesForStreak, computeStreak, yearsEarned } from './badges';
+import { STEPS, computeStreak, stepReady, stepToGo, stepsReady } from './badges';
 import { addDays, formatDate, weekStart, weekdayName } from './dates';
 
 describe('dates', () => {
@@ -30,33 +30,35 @@ describe('streaks', () => {
     expect(computeStreak(new Set(['2026-11-12', '2026-11-14', '2026-11-15']), '2026-11-15')).toBe(2);
     expect(computeStreak(new Set(['2026-11-12']), '2026-11-15')).toBe(0);
   });
-  test('badges earned by streak length', () => {
-    expect(badgesForStreak(0)).toEqual([]);
-    expect(badgesForStreak(2)).toEqual(['paper']);
-    expect(badgesForStreak(1)).toEqual(['paper']);
-    expect(badgesForStreak(4)).toEqual(['paper', 'rowboat']);
-    expect(badgesForStreak(7)).toEqual(['paper', 'rowboat', 'canoe']);
-    expect(badgesForStreak(1000).includes('ghost')).toBe(false);
-    expect(badgesForStreak(360).length).toBe(17);
-  });
 });
 
-describe('yearsEarned', () => {
-  test('year 1 at the day count, year 2 a year later, year 3 two years later, never more', () => {
-    expect(yearsEarned(30, 29)).toBe(0);
-    expect(yearsEarned(30, 30)).toBe(1);
-    expect(yearsEarned(30, 389)).toBe(1);
-    expect(yearsEarned(30, 390)).toBe(2);
-    expect(yearsEarned(30, 750)).toBe(3);
-    expect(yearsEarned(1, 5000)).toBe(3);
+describe('boat looks: wins in that game plus a streak (capped at 30 days)', () => {
+  const step = (kind: string, look: string) => STEPS.find((st) => st.kind === kind && st.look === look)!;
+  test('20 boats in four looks each', () => {
+    expect(STEPS.length).toBe(80);
   });
-});
-
-describe('MILESTONES', () => {
-  test('steps run in the order they are reached, colors included', () => {
-    expect(MILESTONES.length).toBe(17 * 3);
-    const last701 = [...MILESTONES].reverse().find((m) => m.day <= 701)!;
-    expect([last701.kind, last701.year, last701.day]).toEqual(['liner', 2, 690]);
-    expect(MILESTONES.find((m) => m.day > 701)!.kind).toBe('galleon');
+  test('the first month: the streak matches the wins', () => {
+    expect(stepReady(step('canoe', 'color'), { bay: 7, sea: 0 }, 7)).toBe(true);
+    expect(stepReady(step('canoe', 'color'), { bay: 7, sea: 0 }, 6)).toBe(false);
+    expect(stepReady(step('canoe', 'color'), { bay: 6, sea: 9 }, 9)).toBe(false); // Open Sea wins don't count for Bay
+    expect(stepReady(step('canoe', 'sea'), { bay: 0, sea: 7 }, 7)).toBe(true);
+  });
+  test('after that, a 30-day streak is enough', () => {
+    expect(stepReady(step('longship', 'color'), { bay: 180, sea: 0 }, 30)).toBe(true);
+    expect(stepReady(step('longship', 'color'), { bay: 180, sea: 0 }, 29)).toBe(false);
+    expect(stepReady(step('longship', 'color'), { bay: 179, sea: 0 }, 300)).toBe(false);
+  });
+  test('year 2 asks for 360 more wins: gold for the Bay, jewels for the Open Sea', () => {
+    expect(step('canoe', 'gold').need).toBe(367);
+    expect(stepReady(step('canoe', 'jewel'), { bay: 0, sea: 367 }, 30)).toBe(true);
+  });
+  test('what a look still needs', () => {
+    expect(stepToGo(step('canoe', 'sea'), { bay: 30, sea: 5 }, 30)).toEqual({ wins: 2, days: 0 });
+    expect(stepToGo(step('houseboat', 'color'), { bay: 40, sea: 0 }, 12)).toEqual({ wins: 0, days: 18 });
+  });
+  test('25 Bay wins, 5 Open Sea wins, a 30-day streak: Bay up to day 21, Open Sea up to day 3', () => {
+    const ready = stepsReady({ bay: 25, sea: 5 }, 30).map((st) => `${st.kind}:${st.look}`);
+    expect(ready.filter((k) => k.endsWith(':color'))).toEqual(['paper:color', 'kayak:color', 'rowboat:color', 'canoe:color', 'raft:color', 'gondola:color', 'outrigger:color']);
+    expect(ready.filter((k) => k.endsWith(':sea'))).toEqual(['paper:sea', 'kayak:sea', 'rowboat:sea']);
   });
 });

@@ -57,9 +57,10 @@ export function HarborLog({ today, onPick, onClose }: Props) {
 
   return (
     <main className="screen log">
+      {/* The ✕ stays at the top right while you scroll. */}
+      <div className="sticky-close"><CloseButton label="Close harbor log" onClick={onClose} /></div>
       <header className="screen-head">
         <h1>Harbor log</h1>
-        <CloseButton label="Close harbor log" onClick={onClose} />
       </header>
 
       <div className="log__filters">
