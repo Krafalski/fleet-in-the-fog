@@ -22,7 +22,7 @@ import { formatDate } from '../game/dates';
 import { MODES, MODE_LIST, SPYGLASS_COST, gameScore, isPractice } from '../game/game';
 import { FLAG_TAP } from '../config';
 import type { DailyMode, Mode, Ship, PracticeMode } from '../game/game';
-import { alreadyGuessed, boardRows, canLogGuess, flaggedOut, newGame, reducer, totalGuesses } from '../game/reducer';
+import { alreadyGuessed, canLogGuess, flaggedOut, newGame, reducer, totalGuesses } from '../game/reducer';
 import type { Action } from '../game/reducer';
 
 // Boats shrink a little as rows get longer.
@@ -103,7 +103,6 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
 
   const over = state.status !== 'playing';
   const replaying = state.rounds > 1 && !practice; // the whole board goes grey during a replay, so it's clear it doesn't count
-  const maxGuesses = boardRows(state);
   const trying = (state.tries ?? []).length > 0; // Keep trying: the board turns a little grey
 
   async function logGuess() {
@@ -317,10 +316,6 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
       ? `Solved in ${guesses} + ${extras.join(' + ')} · Score ${gameScore(guesses, state.hintsUsed, state.spyglassPoints ?? 0)}`
       : `Solved in ${guesses}`;
   };
-  const status =
-    state.status === 'won' ? `Solved in ${shown}!`
-    : state.status === 'lost' ? 'Slipped away'
-    : `${practice ? 'Practice · ' : ''}${replaying ? 'Replay · ' : ''}Guess ${state.guesses.length + 1} of ${maxGuesses}`;
 
 
   // The result popup, after the fleet sails home (win) or shrinks away (loss). Close it to look at the board.
