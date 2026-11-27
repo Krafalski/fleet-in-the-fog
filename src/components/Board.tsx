@@ -112,7 +112,7 @@ export function Board({ state, boatSize, onTapSlot, onMoveShip, onNote, lastRow,
       <div key={r} ref={isCurrent ? currentRef : null} style={{ ['--row' as string]: r }} className={`row${r >= baseRows && !tries.length ? ' row--extra' : ''}${earlier ? ' row--earlier' : ''}${leaving ? ' row--leaving' : ''}${isCurrent ? ' row--current' : ''}${lastRow && r === newestRow ? ` row--${lastRow === 'won' ? 'found' : 'missed'}` : ''}`}>
         {/* On the row you're building, once it has a ship, its number becomes a little ✕ that clears the row. */}
         {isCurrent && onClearRow && state.current.some((ship) => ship !== null)
-          ? <button type="button" className="row__clear" onClick={onClearRow} aria-label={`Clear row ${r + 1}`} title="Clear row">✕</button>
+          ? <button type="button" className="row__clear" onClick={onClearRow} aria-label={`Clear row ${r + 1}`} title="Clear row"><svg viewBox="0 0 12 12" width="10" height="10" aria-hidden="true"><path d="M2.5 2.5 L9.5 9.5 M9.5 2.5 L2.5 9.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg></button>
           : <span className="row__num">{r + 1}</span>}
         <div className="row__slots">
           <div

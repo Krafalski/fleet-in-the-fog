@@ -593,8 +593,9 @@ h1, h2, p { margin: 0; }
 .ghost-light ellipse { fill: #2E9C7E; } /* deeper sea-green eyes on the light ghost */
 
 /* Two things earned on one day: flip between them on the win card */
-.earned__flip { display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; font-size: 12px; color: var(--ink-muted); }
-.earned__flip button { width: 28px; height: 28px; border: 1px solid var(--outline-soft); border-radius: 50%; background: transparent; color: var(--ink); font-size: 16px; line-height: 1; cursor: pointer; }
+.earned__flip { display: inline-flex; align-items: center; gap: 10px; margin-top: 6px; font-size: 14px; color: var(--ink-muted); }
+.earned__flip button { width: 40px; height: 40px; padding: 0; display: grid; place-items: center; border: 1.5px solid var(--outline); border-radius: 50%; background: var(--paper); color: var(--ink); box-shadow: 0 2px 0 var(--outline); cursor: pointer; }
+.earned__flip button:active { transform: translateY(1px); box-shadow: 0 1px 0 var(--outline); }
 
 /* How to play: the keyboard line only shows on devices with a mouse or trackpad */
 .intro__keys { display: none; }
@@ -725,6 +726,26 @@ kbd { display: inline-block; min-width: 1.4em; padding: 0 4px; border: 1px solid
 
 /* The row's ✕: replaces the row number on the row you're building, once it has a ship. Same width as the number,
    so nothing shifts; a bigger invisible tap area around it. */
-.row__clear { position: relative; width: 22px; height: 22px; margin: 0 -2px; padding: 0; border: 1.5px solid var(--outline); border-radius: 50%; background: var(--paper); color: var(--ink); font-size: 11px; font-weight: 700; line-height: 1; display: grid; place-items: center; box-shadow: 0 2px 0 var(--outline); cursor: pointer; flex: 0 0 auto; }
+.row__clear { position: relative; width: 24px; height: 24px; margin: 0 -3px; padding: 0; border: 1.5px solid var(--outline); border-radius: 50%; background: var(--paper); color: var(--ink); font-size: 11px; font-weight: 700; line-height: 1; display: grid; place-items: center; box-shadow: 0 2px 0 var(--outline); cursor: pointer; flex: 0 0 auto; }
 .row__clear::after { content: ''; position: absolute; inset: -11px; }
 .row__clear:active { transform: translateY(1px); box-shadow: 0 1px 0 var(--outline); }
+
+/* The legend, between the fog card and Log guess: two small columns of keys (Right spot / Wrong spot,
+   No match / Notes), and the score so far in its own tile on the right, exactly as tall as the two lines. */
+.legend--top { display: flex; align-items: stretch; gap: 16px; flex-wrap: nowrap; padding: 0 2px; font-size: 13px; }
+.legend__keys { display: grid; grid-auto-flow: column; grid-template-rows: 1fr 1fr; grid-template-columns: auto auto; column-gap: 28px; row-gap: 8px; align-items: center; justify-items: start; }
+.legend--top .legend__notes { grid-column: 2; grid-row: 2; font-size: 13px; }
+.legend__score { margin-left: auto; display: flex; align-items: center; gap: 10px; padding: 0 14px; border-radius: 12px; background: var(--paper); border: 1.5px solid var(--outline-soft); line-height: 1; }
+.legend__score small { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-muted); }
+.legend__score strong { margin: 0; font-family: var(--font-display); font-size: 26px; font-weight: 600; color: var(--ink); }
+@media (max-width: 390px) { .legend--top { gap: 10px; font-size: 12px; } .legend__keys { column-gap: 16px; } .legend__score { padding: 0 10px; gap: 6px; } }
+
+/* The row's ✕ in the current row's gold: pale gold, a darker gold edge, a burnt-peach ✕. */
+.row__clear { background: var(--lantern-pale); border-color: var(--lantern-deep); color: var(--peach); box-shadow: 0 2px 0 var(--lantern-deep); }
+.row__clear svg path { stroke-width: 2.4; }
+
+/* Tap the score: a little note under it with what it's made of. */
+.legend__score-wrap { position: relative; margin-left: auto; display: flex; }
+.legend__score-wrap .legend__score { margin-left: 0; font: inherit; color: inherit; cursor: pointer; box-shadow: 0 2px 0 var(--outline-soft); }
+.legend__score-wrap .legend__score:active { transform: translateY(1px); box-shadow: none; }
+.legend__breakdown { position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; margin: 0; width: max-content; max-width: 240px; padding: 8px 12px; border-radius: 12px; background: var(--paper); border: 1.5px solid var(--outline); box-shadow: 0 6px 16px var(--shadow); font-size: 13px; color: var(--ink); text-align: left; }

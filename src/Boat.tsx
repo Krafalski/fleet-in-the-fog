@@ -19,6 +19,9 @@ export type BoatLook = 'color' | 'locked' | 'sea' | 'gold' | 'jewel' | 'year2' |
 
 // Game ships in tray order (alphabetical, each a different first letter).
 export const SHIP_KINDS: ShipKind[] = ['fisher', 'junk', 'mailboat', 'schooner', 'tug', 'yacht'];
+// The order ships are shown in (the tray, How to play): alphabetical by color, since players go by color.
+// Display only: a ship's number (its place in SHIP_KINDS) stays the same, so puzzles and saved games don't change.
+export const SHIP_DISPLAY_ORDER: ShipKind[] = ['tug', 'yacht', 'schooner', 'junk', 'mailboat', 'fisher']; // Blue, Coral, Green, Purple, Red, Yellow
 export const SHIP_NAMES: Record<ShipKind, string> = {
   fisher: 'Yellow fisher', junk: 'Purple junk', mailboat: 'Red mailboat', schooner: 'Green schooner', tug: 'Blue tug', yacht: 'Coral yacht',
 };

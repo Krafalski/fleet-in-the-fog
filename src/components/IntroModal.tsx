@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../api';
 import { COMPASS_READ_MS, Compass } from '../Compass';
 import { NoteFlag } from './NoteFlag';
-import { Boat, SHIP_KINDS } from '../Boat';
+import { Boat, SHIP_DISPLAY_ORDER } from '../Boat';
 import { MODES } from '../game/game';
 import { formatDate } from '../game/dates';
 import { AnchorMark, MiniAnchor } from './Board';
@@ -49,7 +49,7 @@ export function IntroModal({ today, onPlay, startOn = 'front' }: { today: string
             </div>
 
             <div className="intro__ships" aria-hidden="true">
-              {SHIP_KINDS.map((kind) => <Boat key={kind} kind={kind} size={0.9} />)}
+              {SHIP_DISPLAY_ORDER.map((kind) => <Boat key={kind} kind={kind} size={0.9} />)}
             </div>
 
             <button type="button" className="primary-btn intro__play" onClick={play} autoFocus>Play</button>

@@ -384,23 +384,51 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
   );
 
   // The legend matches how feedback is drawn right now.
+  // The legend sits between the fog card and Log guess (so the board lines up with the ship tray), with the
+  // score so far beside it: every guess, Lookout and paid Spyglass
+  // adds to it as you go, so you see what a hint costs before the end.
+  const scoreSoFar = gameScore(totalGuesses(state), state.hintsUsed, state.spyglassPoints ?? 0);
+  // Tap the score: what it's made of, e.g. "3 guesses + 1 Lookout + 2 Spyglass = 6". Any tap closes it.
+  const [scoreOpen, setScoreOpen] = useState(false);
+  useEffect(() => {
+    if (!scoreOpen) return;
+    const close = () => setScoreOpen(false);
+    window.addEventListener('click', close);
+    return () => window.removeEventListener('click', close);
+  }, [scoreOpen]);
+  const guessCount = totalGuesses(state);
+  const spyPoints = state.spyglassPoints ?? 0;
+  const scoreParts = [
+    `${guessCount} ${guessCount === 1 ? 'guess' : 'guesses'}`,
+    state.hintsUsed ? `${state.hintsUsed} ${state.hintsUsed === 1 ? 'Lookout' : 'Lookouts'}` : '',
+    spyPoints ? `${spyPoints} for ${spyPoints > 2 ? 'Spyglasses' : 'a Spyglass'}` : '',
+  ].filter(Boolean);
+  const scoreBreakdown = scoreParts.length > 1 ? `${scoreParts.join(' + ')} = ${scoreSoFar}` : `${scoreParts[0]} so far. Lookouts add 1, paid Spyglasses add 2.`;
   const legend = (
-    <div className="legend">
-      {state.perSpot ? (
-        <>
-          <span><AnchorMark kind="exact" size={18} />Right spot</span>
-          <span><AnchorMark kind="near" size={18} />Wrong spot</span>
-          <span className="legend__none">No anchor: no match</span>
-        </>
-      ) : (
-        <>
-          <span><i className="mini-anchor mini-anchor--exact"><MiniAnchorIcon /></i>Right ship, right spot</span>
-          <span><i className="mini-anchor mini-anchor--near"><MiniAnchorIcon /></i>Wrong spot</span>
-        </>
-      )}
-      <button type="button" className="legend__notes" onClick={() => setNotesOpen(true)}>Notes ⓘ</button>
+    <div className="legend legend--top">
+      <div className="legend__keys">
+        {state.perSpot ? (
+          <>
+            <span><AnchorMark kind="exact" size={18} />Right spot</span>
+            <span><AnchorMark kind="near" size={18} />Wrong spot</span>
+            <span className="legend__none">No anchor: no match</span>
+          </>
+        ) : (
+          <>
+            <span><i className="mini-anchor mini-anchor--exact"><MiniAnchorIcon /></i>Right ship, right spot</span>
+            <span><i className="mini-anchor mini-anchor--near"><MiniAnchorIcon /></i>Wrong spot</span>
+            <span />
+          </>
+        )}
+        <button type="button" className="legend__notes" onClick={() => setNotesOpen(true)}>Notes ⓘ</button>
+      </div>
       {/* Kept (hidden) once the game ends, so the page doesn't get shorter and jump */}
-      <strong style={over ? { visibility: 'hidden' } : undefined}>{status}</strong>
+      <div className="legend__score-wrap" style={over ? { visibility: 'hidden' } : undefined}>
+        <button type="button" className="legend__score" onClick={(e) => { e.stopPropagation(); setScoreOpen((o) => !o); }} aria-expanded={scoreOpen} aria-label={`Score ${scoreSoFar}. Tap for the breakdown.`}>
+          <small>Score</small><strong aria-live="polite">{scoreSoFar}</strong>
+        </button>
+        {scoreOpen && <p className="legend__breakdown" role="status">{scoreBreakdown}</p>}
+      </div>
     </div>
   );
 
@@ -486,6 +514,7 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
 
       {practice ? (
         <>
+          {legend}
           {ending ? (
             <button type="button" className="primary-btn actions--holding" aria-hidden="true" tabIndex={-1}>Log guess</button>
           ) : state.status === 'lost' && !state.revealed ? (
@@ -504,39 +533,39 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
           <div className="play-area play-area--practice">
             <div className="play-area__board">
               <Board state={state} boatSize={BOAT_SIZE[mode]} onTapSlot={(slot) => dispatch({ type: 'TAP_SLOT', slot })} onMoveShip={(from, to) => dispatch({ type: 'MOVE_SHIP', from, to })} onNote={(row, spot) => dispatch({ type: 'NOTE', row, spot })} lastRow={ending ? state.status : undefined} onClearRow={() => dispatch({ type: 'CLEAR_ROW' })} />
-              {legend}
               {notesTip}
               {notesModal}
               {spyNote && <p className="spyglass-note" role="status">{spyNote}</p>}
+            {/* The buttons sit right under the board (on a wide screen too, not under the ship tray). */}
+            {/* While the win/loss banner shows, the buttons stay in place but hidden: removing them made the
+                page shorter, and the browser jumped the board down to fill the gap. */}
+            {(
+              <div className={`actions${ending ? ' actions--holding' : ''}`} aria-hidden={ending || undefined}>
+                <div className="actions__left">
+                  {!over && (
+                    <button type="button" className="outline-btn" onClick={useHint} disabled={!hintsLeft}>
+                      {!hintsLeft ? 'No lookouts left' : <>Lookout <small>+1</small></>}
+                    </button>
+                  )}
+                  {!over && spyglassButton}
+                  {state.status === 'lost' && !state.revealed && (
+                    <button type="button" className="outline-btn" onClick={() => dispatch({ type: 'REVEAL' })}>Reveal the fleet</button>
+                  )}
+                </div>
+                <button type="button" className="outline-btn options-btn" onClick={() => setOptionsOpen(true)} aria-label="Game options">Options</button>
+                {optionsPanel([
+                  { label: 'Replay', note: 'Clear the board and start this fleet again. Your guesses so far still count in your score.', go: tapReplay },
+                  ...(state.status !== 'won' && !(over && state.revealed) ? [{ label: 'New game', note: 'A brand-new fleet to find.', go: newPractice }] : []),
+                  ...(!over ? [{ label: 'Give up', note: 'Lift the fog and show the fleet.', go: giveUp }] : []),
+                ])}
+              </div>
+            )}
+            <div className={ending ? 'actions--holding' : undefined} aria-hidden={ending || undefined}>{carryToggle}</div>
             </div>
             <ShipPicker ships={MODES[mode].ships} ruledOut={state.ruledOut} disabled={over} onPick={(ship) => dispatch({ type: 'PICK_SHIP', ship })}
               noted={noted} onToggleNoted={(ship) => dispatch({ type: 'TOGGLE_OUT', ship, greyed: noted.includes(ship) })} justOut={justOut} />
           </div>
 
-          {/* While the win/loss banner shows, the buttons stay in place but hidden: removing them made the
-              page shorter, and the browser jumped the board down to fill the gap. */}
-          {(
-            <div className={`actions${ending ? ' actions--holding' : ''}`} aria-hidden={ending || undefined}>
-              <div className="actions__left">
-                {!over && (
-                  <button type="button" className="outline-btn" onClick={useHint} disabled={!hintsLeft}>
-                    {!hintsLeft ? 'No lookouts left' : <>Lookout <small>+1</small></>}
-                  </button>
-                )}
-                {!over && spyglassButton}
-                {state.status === 'lost' && !state.revealed && (
-                  <button type="button" className="outline-btn" onClick={() => dispatch({ type: 'REVEAL' })}>Reveal the fleet</button>
-                )}
-              </div>
-              <button type="button" className="outline-btn options-btn" onClick={() => setOptionsOpen(true)} aria-label="Game options">Options</button>
-              {optionsPanel([
-                { label: 'Replay', note: 'Start this same fleet again from row 1.', go: tapReplay },
-                ...(state.status !== 'won' && !(over && state.revealed) ? [{ label: 'New game', note: 'A brand-new fleet to find.', go: newPractice }] : []),
-                ...(!over ? [{ label: 'Give up', note: 'Lift the fog and show the fleet.', go: giveUp }] : []),
-              ])}
-            </div>
-          )}
-          <div className={ending ? 'actions--holding' : undefined} aria-hidden={ending || undefined}>{carryToggle}</div>
           {/* Set-and-forget, so it lives at the bottom and leaves room for the board */}
           <div className="feedback-toggle" role="group" aria-label="Feedback">
           <span>Feedback</span>
@@ -574,6 +603,7 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
         </>
       ) : (
         <>
+          {legend}
           {ending ? (
             // The game just ended: a banner where Log guess was. Tap it to skip ahead.
             <button type="button" className="primary-btn actions--holding" aria-hidden="true" tabIndex={-1}>Log guess</button>
@@ -588,33 +618,33 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
           <div className="play-area">
             <div className="play-area__board">
               <Board state={state} boatSize={BOAT_SIZE[mode]} onTapSlot={(slot) => dispatch({ type: 'TAP_SLOT', slot })} onMoveShip={(from, to) => dispatch({ type: 'MOVE_SHIP', from, to })} onNote={(row, spot) => dispatch({ type: 'NOTE', row, spot })} lastRow={ending ? state.status : undefined} onClearRow={() => dispatch({ type: 'CLEAR_ROW' })} />
-              {legend}
               {notesTip}
               {notesModal}
               {spyNote && <p className="spyglass-note" role="status">{spyNote}</p>}
+            {/* The buttons sit right under the board (on a wide screen too, not under the ship tray). */}
+            {/* While the win/loss banner shows, the buttons stay in place but hidden: removing them made the
+                page shorter, and the browser jumped the board down to fill the gap. */}
+            {(
+              <div className={`actions${ending ? ' actions--holding' : ''}`} aria-hidden={ending || undefined}>
+                {replayConfirm}
+                <div className="actions__left">
+                  <button type="button" className="outline-btn" onClick={useHint} disabled={!hintsLeft}>
+                    {!hintsLeft ? 'No lookouts left' : <>Lookout <small>+1</small></>}
+                  </button>
+                  {spyglassButton}
+                </div>
+                <button type="button" className="outline-btn options-btn" onClick={() => setOptionsOpen(true)} aria-label="Game options">Options</button>
+                {optionsPanel([
+                  { label: 'Replay', note: "Clear the board and start today's fleet again. Your guesses so far still count in your score.", go: tapReplay },
+                ])}
+              </div>
+            )}
+            <div className={ending ? 'actions--holding' : undefined} aria-hidden={ending || undefined}>{carryToggle}</div>
             </div>
             <ShipPicker ships={MODES[mode].ships} ruledOut={state.ruledOut} disabled={over} onPick={(ship) => dispatch({ type: 'PICK_SHIP', ship })}
               noted={noted} onToggleNoted={(ship) => dispatch({ type: 'TOGGLE_OUT', ship, greyed: noted.includes(ship) })} justOut={justOut} />
           </div>
 
-          {/* While the win/loss banner shows, the buttons stay in place but hidden: removing them made the
-              page shorter, and the browser jumped the board down to fill the gap. */}
-          {(
-            <div className={`actions${ending ? ' actions--holding' : ''}`} aria-hidden={ending || undefined}>
-              {replayConfirm}
-              <div className="actions__left">
-                <button type="button" className="outline-btn" onClick={useHint} disabled={!hintsLeft}>
-                  {!hintsLeft ? 'No lookouts left' : <>Lookout <small>+1</small></>}
-                </button>
-                {spyglassButton}
-              </div>
-              <button type="button" className="outline-btn options-btn" onClick={() => setOptionsOpen(true)} aria-label="Game options">Options</button>
-              {optionsPanel([
-                { label: 'Replay', note: "Start today's fleet again from row 1.", go: tapReplay },
-              ])}
-            </div>
-          )}
-          <div className={ending ? 'actions--holding' : undefined} aria-hidden={ending || undefined}>{carryToggle}</div>
         </>
       )}
     </main>

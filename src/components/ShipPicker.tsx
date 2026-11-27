@@ -3,7 +3,7 @@
 //   ruled out by a Lookout: grey, crossed out, can't be picked (it really isn't in the fleet)
 //   your own note (a ✕ flag, or a long press on the button): grey, no cross-out, still pickable
 import { useRef } from 'react';
-import { Boat, SHIP_KINDS, SHIP_NAMES } from '../Boat';
+import { Boat, SHIP_DISPLAY_ORDER, SHIP_KINDS, SHIP_NAMES } from '../Boat';
 import type { Ship } from '../game/game';
 
 type Props = {
@@ -26,7 +26,8 @@ export function ShipPicker({ ships, ruledOut, disabled, onPick, noted = [], onTo
   const cancel = () => { if (timer.current) window.clearTimeout(timer.current); timer.current = null; };
   return (
     <div className={`picker picker--${ships}`}>
-      {SHIP_KINDS.slice(0, ships).map((kind, ship) => {
+      {SHIP_DISPLAY_ORDER.filter((kind) => SHIP_KINDS.indexOf(kind) < ships).map((kind) => {
+        const ship = SHIP_KINDS.indexOf(kind);
         const out = ruledOut.includes(ship);
         const mine = !out && noted.includes(ship);
         return (

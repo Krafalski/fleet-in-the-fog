@@ -248,9 +248,9 @@ export function DayPanel({ state, outcome, today, onMode, onOpenLog, onOpenFleet
               </span>
               {steps.length > 1 && (
                 <span className="earned__flip" onClick={(e) => e.stopPropagation()}>
-                  <button type="button" aria-label="Previous" onClick={() => flip(-1)}>‹</button>
+                  <button type="button" aria-label="Previous" onClick={() => flip(-1)}><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M12.5 4.5 L7 10 L12.5 15.5" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg></button>
                   {stepAt + 1} of {steps.length}
-                  <button type="button" aria-label="Next" onClick={() => flip(1)}>›</button>
+                  <button type="button" aria-label="Next" onClick={() => flip(1)}><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M7.5 4.5 L13 10 L7.5 15.5" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg></button>
                 </span>
               )}
             </div>

@@ -601,3 +601,20 @@ describe('catch-up and the silver compass', () => {
     expect([p.compass, p.silverCompass]).toEqual([TODAY, TODAY]);
   });
 });
+
+describe('no shortcuts', () => {
+  test('Replay mid-game: the guesses before it still count in the score', async () => {
+    const f = finished('won');
+    const out = { ...f, guesses: [f.guesses[0]], earlierGuesses: 4, rounds: 2 } as GameState; // 4 guesses, Replay, then 1
+    await api.recordResult(out, TODAY);
+    const results = JSON.parse(storage.getItem('fog:results') ?? '{}');
+    expect(results[`${TODAY}:easy`].guesses).toBe(5);
+  });
+
+  test('the catch-up hands out a look once: opening the game again changes nothing', async () => {
+    await winToday('easy');
+    const first = (await api.loadProgress(TODAY)).looksEarned;
+    const again = (await api.loadProgress(TODAY)).looksEarned;
+    expect(again).toEqual(first);
+  });
+});
