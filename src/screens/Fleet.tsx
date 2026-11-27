@@ -22,7 +22,7 @@ import type { Badge } from '../game/badges';
 import { formatDate } from '../game/dates';
 import { GOLDEN_PER_BOAT, MODES, MODE_LIST, SPYGLASS_COST } from '../game/game';
 import { Spyglass } from '../Spyglass';
-import { Compass } from '../Compass';
+import { COMPASS_READ_MS, Compass } from '../Compass';
 import type { RepairStock } from '../game/repairs';
 
 const NO_STATS: Stats = {
@@ -42,8 +42,6 @@ const LOOK_LABEL = (kind: string, look: BoatLook) =>
   look === 'color' ? 'Bay' : look === 'sea' ? 'Open Sea' : look === 'gold' ? 'Bay · gold' : `Open Sea · ${GEM_NAME[GEM_OF[kind]] ?? 'jewels'}`;
 // Older saves called the inverse colors 'year2'.
 const savedLook = (look: BoatLook | undefined): BoatLook | undefined => (look === 'year2' ? 'sea' : look);
-// How long "How to build your fleet" has to stay open to find the compass.
-const COMPASS_READ_MS = 5000;
 // Two taps on the same boat closer together than this count as a double tap.
 const DOUBLE_TAP_MS = 400;
 const oneDecimal = (n: number | null) => (n === null ? '–' : n.toFixed(1));
@@ -112,6 +110,7 @@ export function Fleet({ today, onClose, focus }: Props) {
   const [hermit, setHermit] = useState<{ first: string | null; count: number }>({ first: null, count: 0 });
   const [extras, setExtras] = useState<Progress['extras'] | null>(null);
   const [compass, setCompass] = useState<string | null>(null);
+  const [silverCompass, setSilverCompass] = useState<string | null>(null);
   const [compassJustFound, setCompassJustFound] = useState(false);
   // Reading pays off: keep "How to build your fleet" open for a few seconds and the compass is yours (once).
   useEffect(() => {
@@ -158,6 +157,7 @@ export function Fleet({ today, onClose, focus }: Props) {
       setHermit({ first: progress.hermit, count: progress.hermitCount });
       setExtras(progress.extras);
       setCompass(progress.compass);
+      setSilverCompass(progress.silverCompass);
       setGolden(progress.goldenSpyglasses);
       setStreak(progress.streak);
     });
@@ -188,7 +188,8 @@ export function Fleet({ today, onClose, focus }: Props) {
   const stepOf = (kind: string, look: BoatLook) => STEPS.find((st) => st.kind === kind && st.look === look);
   const needText = (st: Step) => {
     const toGo = stepToGo(st, wins, streak);
-    const winsPart = toGo.wins > 0 ? `${wins[st.track]} of ${st.need} ${TRACK_NAME[st.track]} wins` : `${st.need} ${TRACK_NAME[st.track]} wins ✓`;
+    const winWord = (n: number) => `${TRACK_NAME[st.track]} ${n === 1 ? 'win' : 'wins'}`;
+    const winsPart = toGo.wins > 0 ? `${wins[st.track]} of ${st.need} ${winWord(st.need)}` : `${st.need} ${winWord(st.need)} ✓`;
     const days = streakNeed(st);
     const streakPart = toGo.days > 0 ? `${days}-day streak (now ${streak})` : `${days}-day streak ✓`;
     return `${winsPart} · ${streakPart}`;
@@ -220,8 +221,8 @@ export function Fleet({ today, onClose, focus }: Props) {
     const secret = badge.kind === MYSTERY_BADGE && !got;
     // Streak boats: what each look asks for. In the first month the streak matches the wins; after that it's 30 days.
     const how = badge.days === null ? badge.how
-      : badge.days === 1 ? '1 win in a game'
-      : `${badge.days} wins in a game and a ${Math.min(badge.days, 30)}-day streak`;
+      : badge.days === 1 ? '1 win in one game (Bay or Open Sea)'
+      : `${badge.days} wins in one game (Bay or Open Sea) and ${/^(8|11|18)$/.test(String(Math.min(badge.days, 30))) ? 'an' : 'a'} ${Math.min(badge.days, 30)}-day streak`;
     return {
       got,
       name: secret ? 'Mystery boat' : badge.name,
@@ -287,42 +288,48 @@ export function Fleet({ today, onClose, focus }: Props) {
       {rulesOpen && (
         <div className="notes-modal" role="dialog" aria-modal="true" aria-label="How to build your fleet" onClick={() => { setRulesOpen(false); setCompassJustFound(false); }}>
           <div className="notes-modal__card rules-card" onClick={(e) => e.stopPropagation()}>
-            <h2>How to build your fleet</h2>
-            <section>
-              <span className="rules-card__icon"><Creature kind="whale" size={0.9} /></span>
-              <div>
-                <h3>Animal sightings</h3>
-                <p>Every win brings an animal sighting based on your score: guesses plus hints. Lower scores reveal rarer animals.</p>
-              </div>
-            </section>
-            <section>
-              <span className="rules-card__icon"><Boat kind="canoe" size={0.9} /></span>
-              <div>
-                <h3>Boats</h3>
-                <p>Win either daily game to grow your streak and earn boats. New boats arrive on days 1, 2, 3, 7, 10, 14, 21, and 30, then about once a month.</p>
-                <p>Each boat has a Bay look and an Open Sea look. To unlock a look, meet that boat’s win requirement in that game and its streak requirement. Streak requirements never exceed 30 days. Once you have both looks, tap the boat to choose which one sails in your harbor.</p>
-                <p>If your streak breaks, you keep your boats and win totals. Build another 30-day streak to continue collecting. After a full year of wins, you can earn gold Bay boats and jewel-toned Open Sea boats.</p>
-              </div>
-            </section>
-            <section>
-              <span className="rules-card__icon"><Creature kind="medic" size={0.9} /></span>
-              <div>
-                <h3>Streak repairs</h3>
-                <p>Repairs protect your streak when you miss a day. You earn them after 4, 25, and 52 total days played, then every 30 days after that. They are based on total days played—not your current streak—so you can keep earning them after a break. Later repairs can cover up to three missed days.</p>
-              </div>
-            </section>
-            <section>
-              <span className="rules-card__icon"><Spyglass size={0.9} /></span>
-              <div>
-                <h3>Golden Spyglasses</h3>
-                <p>In Open Sea, a Spyglass finds and locks in one correctly placed ship. Each new boat brings two golden Spyglasses, which are free to use. Without one, using a Spyglass adds 2 points to your score.</p>
-              </div>
-            </section>
+            {/* The compass has its own spot by the title, so finding it never moves anything:
+                blank until found, gold and glowing the moment it's found, then in its regular colors. */}
+            <div className="rules-card__head">
+              <h2>How to build your fleet</h2>
+              <span className={`rules-card__compass${compassJustFound ? ' is-new' : ''}`} aria-hidden={!compass}>
+                {compass && <Compass size={1} label="Your compass" />}
+              </span>
+            </div>
+            <div className="rules-card__body">
+              <section>
+                <span className="rules-card__icon"><Creature kind="whale" size={0.9} /></span>
+                <div>
+                  <h3>Animal sightings</h3>
+                  <p>Every win brings an animal sighting based on your score: guesses plus hints. Lower scores reveal rarer animals.</p>
+                </div>
+              </section>
+              <section>
+                <span className="rules-card__icon"><Boat kind="canoe" size={0.9} /></span>
+                <div>
+                  <h3>Boats</h3>
+                  <p>Win either daily game to grow your streak and earn boats. New boats arrive on days 1, 2, 3, 7, 10, 14, 21, and 30, then about once a month.</p>
+                  <p>Each boat has a Bay look and an Open Sea look. To unlock a look, meet that boat’s win requirement in that game and its streak requirement. Streak requirements never exceed 30 days. Once you have both looks, tap the boat to choose which one sails in your harbor.</p>
+                  <p>If your streak breaks, you keep your boats and win totals. Build another 30-day streak to continue collecting. After a full year of wins, you can earn gold Bay boats and jewel-toned Open Sea boats.</p>
+                </div>
+              </section>
+              <section>
+                <span className="rules-card__icon"><Creature kind="medic" size={0.9} /></span>
+                <div>
+                  <h3>Streak repairs</h3>
+                  <p>Repairs protect your streak when you miss a day. You earn them after 4, 25, and 52 total days played, then every 30 days after that. They are based on total days played—not your current streak—so you can keep earning them after a break. Later repairs can cover up to three missed days.</p>
+                </div>
+              </section>
+              <section>
+                <span className="rules-card__icon"><Spyglass size={0.9} /></span>
+                <div>
+                  <h3>Golden Spyglasses</h3>
+                  <p>In Open Sea, a Spyglass finds and locks in one correctly placed ship. Each new boat brings two golden Spyglasses, which are free to use. Without one, using a Spyglass adds 2 points to your score.</p>
+                </div>
+              </section>
+            </div>
             {compassJustFound && (
-              <div className="rules-card__found" role="status">
-                <Compass size={1} />
-                <p><strong>You found a compass!</strong> Thanks for reading. Now you know your bearings.</p>
-              </div>
+              <p className="rules-card__found" role="status"><strong>You found a compass!</strong> Thanks for reading. Now you know your bearings.</p>
             )}
             <button type="button" className="primary-btn primary-btn--small" onClick={() => { setRulesOpen(false); setCompassJustFound(false); }}>Got it</button>
           </div>
@@ -357,13 +364,13 @@ export function Fleet({ today, onClose, focus }: Props) {
 
       {showAll ? (
         <ul className="fleet__list">
+          <li className="sight-cols sight-cols--head" aria-hidden="true"><span /><span /><span>Bay</span><span>Open Sea</span></li>
           {sightings.map((s) => (
-            <li key={s.kind} className="fleet__item">
+            <li key={s.kind} className="fleet__item sight-cols" aria-label={`${s.name}, ${s.how}, ${seen(s)}`}>
               <div className="fleet__icon"><Creature kind={s.kind as CreatureKind} look={s.got ? 'color' : 'locked'} size={1.3} /></div>
-              <div>
-                <div className="fleet__item-head"><span className="fleet__name">{s.name}</span><span className="fleet__how">{s.how}</span></div>
-                <p className={`fleet__status${s.got ? ' is-earned' : ''}`}>{seen(s)}</p>
-              </div>
+              <div><span className="fleet__name">{s.name}</span><span className="fleet__how sight-cols__score">{s.how}</span></div>
+              <span className="sighting__counts sight-cols__n"><i>{s.easy}</i></span>
+              <span className="sighting__counts sight-cols__n"><i className="is-sea">{s.hard}</i></span>
             </li>
           ))}
           {BADGES.map((badge) => {
@@ -372,7 +379,7 @@ export function Fleet({ today, onClose, focus }: Props) {
               <li key={badge.kind} className="fleet__item">
                 <div className="fleet__icon"><Boat kind={badge.kind as BadgeKind} look={lookOf(badge.kind)} size={1.3} /></div>
                 <div>
-                  <div className="fleet__item-head"><span className="fleet__name">{d.name}</span><span className="fleet__how">{d.how}</span></div>
+                  <div className="fleet__item-head fleet__item-head--stacked"><span className="fleet__name">{d.name}</span><span className="fleet__how">{d.how}</span></div>
                   <p className="fleet__note">{d.note}</p>
                   <p className={`fleet__status${d.got ? ' is-earned' : ''}`}>{d.status}</p>
                 </div>
@@ -419,10 +426,12 @@ export function Fleet({ today, onClose, focus }: Props) {
                 aria-hidden={pickedCreature ? undefined : true}
               >
                 <Creature kind={shown.kind as CreatureKind} look={shown.got ? 'color' : 'locked'} size={1.2} />
-                <div>
+                <div className="creature-note__text">
                   <strong>{shown.name}</strong>
-                  <p>{shown.how} · {seen(shown)}</p>
+                  <p>{shown.how}</p>
                 </div>
+                <span className="creature-note__count"><small>Bay</small><span className="sighting__counts"><i>{shown.easy}</i></span></span>
+                <span className="creature-note__count"><small>Open Sea</small><span className="sighting__counts"><i className="is-sea">{shown.hard}</i></span></span>
               </div>
             );
           })()}
@@ -544,13 +553,22 @@ export function Fleet({ today, onClose, focus }: Props) {
           </div>
         );
       })}
-      {/* The compass: found by reading How to build your fleet. */}
+      {/* The compasses: gold for reading How to build your fleet, silver for reading How to play.
+          With both, the gold one sits on top and the silver one is shut and tucked behind it. */}
       {!showAll && (
-        <div className={`trophy-card compass-card${compass ? ' is-lit' : ''}`}>
-          <Compass size={1.2} locked={!compass} />
+        <div className={`trophy-card compass-card${compass || silverCompass ? ' is-lit' : ''}`}>
+          {compass && silverCompass ? (
+            <span className="compass-stack"><Compass size={1.05} metal="silver" closed /><Compass size={1.2} /></span>
+          ) : (
+            <Compass size={1.2} metal={silverCompass ? 'silver' : 'gold'} locked={!compass && !silverCompass} />
+          )}
           <div>
-            <strong>Compass</strong>
-            <p>{compass ? `For finding your bearings. Found ${formatDate(compass, false)}.` : 'Hidden somewhere for curious captains.'}</p>
+            <strong>{compass && silverCompass ? 'Compasses' : silverCompass ? 'Silver compass' : 'Compass'}</strong>
+            <p>{compass && silverCompass
+              ? `For finding your bearings, twice over. Gold found ${formatDate(compass, false)}, silver ${formatDate(silverCompass, false)}.`
+              : compass ? `For finding your bearings. Found ${formatDate(compass, false)}. There's a silver one hidden somewhere too.`
+              : silverCompass ? `For finding your bearings. Found ${formatDate(silverCompass, false)}. There's a gold one hidden somewhere too.`
+              : 'Hidden somewhere for curious captains.'}</p>
           </div>
         </div>
       )}

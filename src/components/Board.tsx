@@ -15,9 +15,10 @@ type Props = {
   onMoveShip?: (from: number, to: number) => void; // drag a ship to another spot in the current row
   onNote?: (row: number, spot: number) => void;    // tap a ship in a finished row: next note flag
   lastRow?: 'won' | 'lost' | 'playing'; // set for a moment when the game ends, to light up the final row
+  onClearRow?: () => void; // the little ✕ on the row you're building: take its ships off
 };
 
-export function Board({ state, boatSize, onTapSlot, onMoveShip, onNote, lastRow }: Props) {
+export function Board({ state, boatSize, onTapSlot, onMoveShip, onNote, lastRow, onClearRow }: Props) {
   const { slots } = MODES[state.mode];
   const maxGuesses = boardRows(state);
   const tries = state.tries ?? [];
@@ -109,7 +110,10 @@ export function Board({ state, boatSize, onTapSlot, onMoveShip, onNote, lastRow 
     const earlier = latestTry > 0 && tryOfRow(state, r) < latestTry;
     rows.push(
       <div key={r} ref={isCurrent ? currentRef : null} style={{ ['--row' as string]: r }} className={`row${r >= baseRows && !tries.length ? ' row--extra' : ''}${earlier ? ' row--earlier' : ''}${leaving ? ' row--leaving' : ''}${isCurrent ? ' row--current' : ''}${lastRow && r === newestRow ? ` row--${lastRow === 'won' ? 'found' : 'missed'}` : ''}`}>
-        <span className="row__num">{r + 1}</span>
+        {/* On the row you're building, once it has a ship, its number becomes a little ✕ that clears the row. */}
+        {isCurrent && onClearRow && state.current.some((ship) => ship !== null)
+          ? <button type="button" className="row__clear" onClick={onClearRow} aria-label={`Clear row ${r + 1}`} title="Clear row">✕</button>
+          : <span className="row__num">{r + 1}</span>}
         <div className="row__slots">
           <div
             className={`sea sea--${tone}`}

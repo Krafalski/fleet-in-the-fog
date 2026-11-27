@@ -28,6 +28,7 @@ export type GameState = {
   // The player's own note flags on finished rows, keyed "row:spot". The game never checks them.
   notes: Record<string, NoteFlag>;
   markedOut: Ship[];           // ships the player marked as out with a long press (notes only; still pickable)
+  markedIn?: Ship[];           // ships brought back by a long press even though their ✕ flags would grey them (long press wins)
   // Keep trying after a loss: the row each new try starts on. Every try adds KEEP_TRYING_ROWS rows under the old ones.
   tries?: number[];
 };
@@ -67,7 +68,7 @@ export type Action =
   | { type: 'GAVE_UP'; answer: Ship[] }   // practice only: end the game and show the fleet
   | { type: 'SET_PER_SPOT'; perSpot: boolean } // practice only: the feedback toggle
   | { type: 'REVEAL' }                     // after a loss: lift the fog and show the fleet
-  | { type: 'TOGGLE_OUT'; ship: Ship } // long press on a ship button: mark it out, or back in
+  | { type: 'TOGGLE_OUT'; ship: Ship; greyed?: boolean } // long press on a ship button: grey it out, or (if greyed now, by hand or by flags) back in
   | { type: 'NOTE'; row: number; spot: number } // flag a ship in a finished row: next flag in the cycle
   | { type: 'MOVE_SHIP'; from: number; to: number } // drag a ship in the current row: swaps with whatever is there
   | { type: 'SPYGLASS'; spot: number; ship: Ship; cost: number } // lock a right-spot ship in place
@@ -132,6 +133,7 @@ export function reducer(state: GameState, action: Action): GameState {
       earlierGuesses: totalGuesses(state),
       revealed: false,
       notes: {}, // a new round starts with a clean board
+      markedOut: [], markedIn: [], // ...and a clean tray (Lookout's ruled-out ships stay: they were paid for)
       tries: [],
     };
   }
@@ -221,7 +223,11 @@ export function reducer(state: GameState, action: Action): GameState {
 
     case 'TOGGLE_OUT': {
       const marked = state.markedOut ?? [];
-      return { ...state, markedOut: marked.includes(action.ship) ? marked.filter((s) => s !== action.ship) : [...marked, action.ship] };
+      const kept = state.markedIn ?? [];
+      const greyed = action.greyed ?? marked.includes(action.ship);
+      return greyed
+        ? { ...state, markedOut: marked.filter((s) => s !== action.ship), markedIn: [...kept.filter((s) => s !== action.ship), action.ship] }
+        : { ...state, markedOut: [...marked.filter((s) => s !== action.ship), action.ship], markedIn: kept.filter((s) => s !== action.ship) };
     }
 
     case 'NOTE': {
@@ -282,4 +288,24 @@ export function reducer(state: GameState, action: Action): GameState {
       };
     }
   }
+}
+
+// Which ships the player's ✕ flags rule out. A ship is out only when, in some finished row, every one of it in
+// that row has a ✕ (✕ on two of three coral yachts means "only one coral", so coral stays). Any ● or ○ on a
+// ship, in any row, means it's in the fleet, so its ✕ flags never grey it.
+export function flaggedOut(state: Pick<GameState, 'guesses' | 'notes'>): Ship[] {
+  const notes = state.notes ?? {};
+  const inFleet = new Set<Ship>();
+  for (const [key, flag] of Object.entries(notes)) {
+    const [row, spot] = key.split(':').map(Number);
+    const ship = state.guesses[row]?.[spot];
+    if (ship != null && (flag === 'exact' || flag === 'near')) inFleet.add(ship);
+  }
+  const out = new Set<Ship>();
+  state.guesses.forEach((guess, row) => {
+    const seen = new Map<Ship, boolean>(); // ship -> every one in this row has a ✕
+    guess.forEach((ship, spot) => seen.set(ship, (seen.get(ship) ?? true) && notes[`${row}:${spot}`] === 'no'));
+    for (const [ship, allX] of seen) if (allX && !inFleet.has(ship)) out.add(ship);
+  });
+  return [...out].sort((a, b) => a - b);
 }

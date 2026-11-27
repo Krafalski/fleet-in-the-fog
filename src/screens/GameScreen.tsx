@@ -22,7 +22,7 @@ import { formatDate } from '../game/dates';
 import { MODES, MODE_LIST, SPYGLASS_COST, gameScore, isPractice } from '../game/game';
 import { FLAG_TAP } from '../config';
 import type { DailyMode, Mode, Ship, PracticeMode } from '../game/game';
-import { alreadyGuessed, boardRows, canLogGuess, newGame, reducer, totalGuesses } from '../game/reducer';
+import { alreadyGuessed, boardRows, canLogGuess, flaggedOut, newGame, reducer, totalGuesses } from '../game/reducer';
 import type { Action } from '../game/reducer';
 
 // Boats shrink a little as rows get longer.
@@ -39,6 +39,8 @@ const SHIP_KEYS = ['y', 'p', 'r', 'g', 'b', 'c'];
 const ALREADY_PLAYED_MS = 2000;
 // Two taps on Replay closer together than this skip the "are you sure" question.
 const DOUBLE_TAP_MS = 400;
+// How long a ✕ flag has to stay put before its ship greys out in the tray.
+const X_FLAG_GREY_MS = 1200;
 
 type Props = {
   dateKey: string;  // the puzzle being played
@@ -70,7 +72,7 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
   const repeatTimer = useRef<number | undefined>(undefined);
   useEffect(() => () => { window.clearTimeout(endTimer.current); window.clearTimeout(repeatTimer.current); }, []);
   const lastReplayTap = useRef(0);
-  const [askGiveUp, setAskGiveUp] = useState(false);
+  const [optionsOpen, setOptionsOpen] = useState(false); // the Game options panel (Replay, New game, Give up)
   const [carry, setCarry] = useState(() => loadPrefs().carry);
   // The albatross note: how many the player has sighted. null = no note; 0 = a Practice albatross (shown, not counted).
   // Stays until the next guess is logged.
@@ -192,13 +194,35 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
   }
   const [justOut, setJustOut] = useState<Ship | null>(null);
 
-  // Ships you've marked out: a ✕ flag that has stayed put for half a second (so tapping through the
-  // flags doesn't flicker the panel), plus long-pressed ones.
-  const xShips = [...new Set(Object.entries(state.notes ?? {}).filter(([, f]) => f === 'no')
-    .map(([key]) => state.guesses[Number(key.split(':')[0])]?.[Number(key.split(':')[1])]).filter((x): x is Ship => x != null))].sort().join(',');
+  // Ships greyed in the tray: ruled out by ✕ flags (see flaggedOut), plus long-pressed ones; a long press also
+  // brings a flag-greyed ship back, without touching the flags. Greying from a flag waits a moment (so tapping
+  // through the flags doesn't flicker the tray); coming back is instant.
+  const xShips = flaggedOut(state).join(',');
   const [settledX, setSettledX] = useState(xShips);
-  useEffect(() => { const t = window.setTimeout(() => setSettledX(xShips), 500); return () => window.clearTimeout(t); }, [xShips]);
-  const noted = [...new Set([...(settledX ? settledX.split(',').map(Number) : []), ...(state.markedOut ?? [])])];
+  useEffect(() => {
+    const now = new Set(xShips ? xShips.split(',') : []);
+    setSettledX((prev) => (prev ? prev.split(',') : []).filter((x) => now.has(x)).join(',')); // back right away
+    const t = window.setTimeout(() => setSettledX(xShips), X_FLAG_GREY_MS);
+    return () => window.clearTimeout(t);
+  }, [xShips]);
+  const keptIn = state.markedIn ?? [];
+  const noted = [...new Set([...(settledX ? settledX.split(',').map(Number) : []).filter((x) => !keptIn.includes(x)), ...(state.markedOut ?? [])])];
+
+  // The albatross (or lobster) note: it takes over the fog card for a moment, then drifts back into the fog.
+  const sighting = albatross === null ? null : (
+    <>
+      {lobster !== null
+        ? <Creature kind={state.mode === 'hard' ? 'bluelobster' : 'lobster'} size={0.85} />
+        : <Scenery kind="albatross" size={0.85} />}
+      {lobster !== null
+        ? <p><strong>{lobster > 1 ? 'Another' : 'A'} {state.mode === 'hard' ? 'blue' : 'red'} lobster!</strong> An albatross on your very first guess.{lobster > 1 ? ` That's ${lobster} in your fleet.` : " It's in your fleet now."}</p>
+        : albatross === 0
+        ? <p><strong>An albatross!</strong> Every ship right, every spot wrong. Practice ones are just for fun.</p>
+        : albatross === 1
+        ? <p><strong>An albatross!</strong> Every ship right, every spot wrong. It's in your fleet now.</p>
+        : <p><strong>Another albatross!</strong> Every ship right, every spot wrong. That's {albatross} in your fleet.</p>}
+    </>
+  );
 
   function replay() {
     setEndPopup(false);
@@ -258,7 +282,7 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
   // Practice: a new random fleet. The feedback toggle carries over.
   function newPractice() {
     setEndPopup(false);
-    setAskGiveUp(false);
+    setOptionsOpen(false);
     setAlbatross(null);
     setSpyNote('');
     setEnding(false);
@@ -267,7 +291,7 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
   }
 
   async function giveUp() {
-    setAskGiveUp(false);
+    setOptionsOpen(false);
     dispatch({ type: 'GAVE_UP', answer: await api.revealAnswer(state) });
   }
 
@@ -336,12 +360,25 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
     </div>
   );
 
-  const giveUpConfirm = askGiveUp && (
-    <div className="confirm" role="alertdialog" aria-label="Give up?">
-      <p><strong>Give up?</strong> The fog lifts and shows the fleet.</p>
-      <div className="confirm__buttons">
-        <button type="button" className="outline-btn" onClick={() => setAskGiveUp(false)}>Keep playing</button>
-        <button type="button" className="primary-btn primary-btn--small" onClick={giveUp}>Show the fleet</button>
+  // Game options: the actions that end or restart a game, kept behind one deliberate tap. It slides up from the
+  // bottom; Resume, tapping outside or Escape closes it. Every choice in it ends this game, so they're all red,
+  // and opening the panel is the only "are you sure?".
+  useEffect(() => {
+    if (!optionsOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOptionsOpen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [optionsOpen]);
+  const optionsPanel = (items: { label: string; note: string; go: () => void }[]) => optionsOpen && (
+    <div className="options" role="dialog" aria-modal="true" aria-label="Game options" onClick={() => setOptionsOpen(false)}>
+      <div className="options__panel" onClick={(e) => e.stopPropagation()}>
+        <h2>Game options</h2>
+        <button type="button" className="primary-btn options__resume" onClick={() => setOptionsOpen(false)} autoFocus>Resume</button>
+        {items.map((it) => (
+          <button key={it.label} type="button" className="options__item" onClick={() => { setOptionsOpen(false); it.go(); }}>
+            <strong>{it.label}</strong><span>{it.note}</span>
+          </button>
+        ))}
       </div>
     </div>
   );
@@ -438,33 +475,14 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
           <button type="button" className={`size-side${mode === 'practice-easy' ? ' is-on' : ''}`} aria-pressed={mode === 'practice-easy'} onClick={() => openPractice('practice-easy')}>
             <span>Bay</span><small>{MODES['practice-easy'].slots} ships</small>
           </button>
-          <FogCard state={state} boatSize={BOAT_SIZE[mode]} />
+          <FogCard state={state} boatSize={BOAT_SIZE[mode]} sighting={sighting} onSightingTap={() => setAlbatross(null)} />
           <button type="button" className={`size-side${mode === 'practice-hard' ? ' is-on' : ''}`} aria-pressed={mode === 'practice-hard'} onClick={() => openPractice('practice-hard')}>
             <span>Open Sea</span><small>{MODES['practice-hard'].slots} ships</small>
           </button>
         </div>
       ) : (
-        <FogCard state={state} boatSize={BOAT_SIZE[mode]} />
+        <FogCard state={state} boatSize={BOAT_SIZE[mode]} sighting={sighting} onSightingTap={() => setAlbatross(null)} />
       )}
-      {/* The albatross note floats over the fog card instead of taking up space, so the board never moves.
-          It fades away by itself after a few seconds, or with a tap. */}
-      <div className="albatross-anchor">
-      {albatross !== null && (
-        <div className="albatross-note" role="status" onClick={() => setAlbatross(null)} title="Tap to close">
-          {lobster !== null
-            ? <Creature kind={state.mode === 'hard' ? 'bluelobster' : 'lobster'} size={0.9} />
-            : <Scenery kind="albatross" size={0.9} />}
-          {lobster !== null
-            ? <p><strong>{lobster > 1 ? 'Another' : 'A'} {state.mode === 'hard' ? 'blue' : 'red'} lobster!</strong> An albatross on your very first guess: every ship right, every spot wrong.{lobster > 1 ? ` That's ${lobster} in your fleet.` : " It's in your fleet now."}</p>
-            : albatross === 0
-            ? <p><strong>An albatross!</strong> Every ship right, every spot wrong. Practice albatrosses are just for fun: they aren't added to your fleet.</p>
-            : albatross === 1
-            ? <p><strong>An albatross!</strong> Every ship right, every spot wrong. It's in your fleet now.</p>
-            : <p><strong>Another albatross!</strong> Every ship right, every spot wrong. That's {albatross} in your fleet.</p>}
-          <span className="albatross-note__x" aria-hidden="true">✕</span>
-        </div>
-      )}
-      </div>
 
       {practice ? (
         <>
@@ -485,21 +503,20 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
           {/* Phones: the ships sit pinned to the bottom of the screen. Wide screens: a column beside the board. */}
           <div className="play-area play-area--practice">
             <div className="play-area__board">
-              <Board state={state} boatSize={BOAT_SIZE[mode]} onTapSlot={(slot) => dispatch({ type: 'TAP_SLOT', slot })} onMoveShip={(from, to) => dispatch({ type: 'MOVE_SHIP', from, to })} onNote={(row, spot) => dispatch({ type: 'NOTE', row, spot })} lastRow={ending ? state.status : undefined} />
+              <Board state={state} boatSize={BOAT_SIZE[mode]} onTapSlot={(slot) => dispatch({ type: 'TAP_SLOT', slot })} onMoveShip={(from, to) => dispatch({ type: 'MOVE_SHIP', from, to })} onNote={(row, spot) => dispatch({ type: 'NOTE', row, spot })} lastRow={ending ? state.status : undefined} onClearRow={() => dispatch({ type: 'CLEAR_ROW' })} />
               {legend}
               {notesTip}
               {notesModal}
               {spyNote && <p className="spyglass-note" role="status">{spyNote}</p>}
             </div>
             <ShipPicker ships={MODES[mode].ships} ruledOut={state.ruledOut} disabled={over} onPick={(ship) => dispatch({ type: 'PICK_SHIP', ship })}
-              noted={noted} onToggleNoted={(ship) => dispatch({ type: 'TOGGLE_OUT', ship })} justOut={justOut} />
+              noted={noted} onToggleNoted={(ship) => dispatch({ type: 'TOGGLE_OUT', ship, greyed: noted.includes(ship) })} justOut={justOut} />
           </div>
 
           {/* While the win/loss banner shows, the buttons stay in place but hidden: removing them made the
               page shorter, and the browser jumped the board down to fill the gap. */}
           {(
             <div className={`actions${ending ? ' actions--holding' : ''}`} aria-hidden={ending || undefined}>
-              {giveUpConfirm}
               <div className="actions__left">
                 {!over && (
                   <button type="button" className="outline-btn" onClick={useHint} disabled={!hintsLeft}>
@@ -510,10 +527,13 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
                 {state.status === 'lost' && !state.revealed && (
                   <button type="button" className="outline-btn" onClick={() => dispatch({ type: 'REVEAL' })}>Reveal the fleet</button>
                 )}
-                <button type="button" className="outline-btn" onClick={tapReplay}>Replay</button>
-                {state.status !== 'won' && !(over && state.revealed) && <button type="button" className="outline-btn" onClick={newPractice}>New game</button>}
               </div>
-              {!over && <button type="button" className="link-btn" onClick={() => setAskGiveUp(true)}>Give up</button>}
+              <button type="button" className="outline-btn options-btn" onClick={() => setOptionsOpen(true)} aria-label="Game options">Options</button>
+              {optionsPanel([
+                { label: 'Replay', note: 'Start this same fleet again from row 1.', go: tapReplay },
+                ...(state.status !== 'won' && !(over && state.revealed) ? [{ label: 'New game', note: 'A brand-new fleet to find.', go: newPractice }] : []),
+                ...(!over ? [{ label: 'Give up', note: 'Lift the fog and show the fleet.', go: giveUp }] : []),
+              ])}
             </div>
           )}
           <div className={ending ? 'actions--holding' : undefined} aria-hidden={ending || undefined}>{carryToggle}</div>
@@ -567,14 +587,14 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
           {/* Phones: the ships sit pinned to the bottom of the screen. Wide screens: a column beside the board. */}
           <div className="play-area">
             <div className="play-area__board">
-              <Board state={state} boatSize={BOAT_SIZE[mode]} onTapSlot={(slot) => dispatch({ type: 'TAP_SLOT', slot })} onMoveShip={(from, to) => dispatch({ type: 'MOVE_SHIP', from, to })} onNote={(row, spot) => dispatch({ type: 'NOTE', row, spot })} lastRow={ending ? state.status : undefined} />
+              <Board state={state} boatSize={BOAT_SIZE[mode]} onTapSlot={(slot) => dispatch({ type: 'TAP_SLOT', slot })} onMoveShip={(from, to) => dispatch({ type: 'MOVE_SHIP', from, to })} onNote={(row, spot) => dispatch({ type: 'NOTE', row, spot })} lastRow={ending ? state.status : undefined} onClearRow={() => dispatch({ type: 'CLEAR_ROW' })} />
               {legend}
               {notesTip}
               {notesModal}
               {spyNote && <p className="spyglass-note" role="status">{spyNote}</p>}
             </div>
             <ShipPicker ships={MODES[mode].ships} ruledOut={state.ruledOut} disabled={over} onPick={(ship) => dispatch({ type: 'PICK_SHIP', ship })}
-              noted={noted} onToggleNoted={(ship) => dispatch({ type: 'TOGGLE_OUT', ship })} justOut={justOut} />
+              noted={noted} onToggleNoted={(ship) => dispatch({ type: 'TOGGLE_OUT', ship, greyed: noted.includes(ship) })} justOut={justOut} />
           </div>
 
           {/* While the win/loss banner shows, the buttons stay in place but hidden: removing them made the
@@ -587,9 +607,11 @@ export function GameScreen({ dateKey, today, mode, onMode, onOpenLog, onOpenFlee
                   {!hintsLeft ? 'No lookouts left' : <>Lookout <small>+1</small></>}
                 </button>
                 {spyglassButton}
-                <button type="button" className="outline-btn replay-btn" onClick={tapReplay}>Replay</button>
               </div>
-              <button type="button" className="link-btn" onClick={() => dispatch({ type: 'CLEAR_ROW' })}>Clear row</button>
+              <button type="button" className="outline-btn options-btn" onClick={() => setOptionsOpen(true)} aria-label="Game options">Options</button>
+              {optionsPanel([
+                { label: 'Replay', note: "Start today's fleet again from row 1.", go: tapReplay },
+              ])}
             </div>
           )}
           <div className={ending ? 'actions--holding' : undefined} aria-hidden={ending || undefined}>{carryToggle}</div>

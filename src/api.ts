@@ -53,6 +53,7 @@ export type Progress = {
   nautilus: string | null;             // the puzzle day of the first nautilus (same score in the Bay and the Open Sea), or null
   nautilusCount: number;               // how many the player has sighted
   compass: string | null;              // the day the compass was found (by reading "How to build your fleet"), or null
+  silverCompass: string | null;        // the day the silver compass was found (by reading How to play), or null
   crab: string | null;                 // the puzzle day of the first crab (Bay took more guesses than the Open Sea), or null
   crabCount: number;
   hermit: string | null;               // the day of the first hermit crab (a win after Keep trying), or null
@@ -133,7 +134,8 @@ export type GameApi = {
   // Remember which colorway the player wants a boat shown in.
   saveBoatLook(kind: string, look: BoatLook): Promise<void>;
   // The compass: found once, by keeping "How to build your fleet" open for a few seconds. True the first time.
-  findCompass(today: string): Promise<boolean>;
+  findCompass(today: string, metal?: 'gold' | 'silver'): Promise<boolean>; // gold: How to build your fleet; silver: How to play
+  hasCompass?(metal: 'gold' | 'silver'): boolean; // synchronous check, so a rules card knows on its first draw
   // Everyone's average for a day. Needs the server; the local version has nothing to offer.
   loadDayStats(dateKey: string, mode: Mode): Promise<DayStats | null>;
   // Post the player's note as a Reddit comment. Needs the server.
@@ -209,7 +211,8 @@ export function addGoldenSpyglasses(n: number) {
 }
 // The nautilus: the Bay and the Open Sea won with the same score on the same puzzle day. Counted, like the albatross.
 const NAUTILUS_KEY = `${STORE}:nautilus`; // ['2026-11-26', ...] puzzle days
-const COMPASS_KEY = `${STORE}:compass`;   // the day it was found
+const COMPASS_KEY = `${STORE}:compass`;   // the day the gold compass was found
+const SILVER_COMPASS_KEY = `${STORE}:compassSilver`; // the day the silver compass was found
 const readNautilus = () => read<string[]>(NAUTILUS_KEY, []);
 // The crab: both games won on one puzzle day, and the Bay took more guesses than the Open Sea. Guesses only, not score,
 // so a hint can't buy one. The hermit crab: a daily win after Keep trying (it carries its old rows like a shell).
@@ -512,8 +515,11 @@ export const localApi: GameApi = {
   },
 
   async loadProgress(today) {
-    const badges = read<Record<string, string>>(BADGES_KEY, {});
     const results = read<Record<string, DayResult>>(RESULTS_KEY, {});
+    // Catch up: hand out any boat looks already earned but never awarded (a boat added after the wins that
+    // earn it, say). Milestones count past play, so nobody has to wait for their next win.
+    awardStreakBadges(streakFrom(results, today), today);
+    const badges = read<Record<string, string>>(BADGES_KEY, {});
     const { repairs, nextRepairIn, offer } = repairState(results, today);
     return {
       streak: streakFrom(results, today),
@@ -527,6 +533,7 @@ export const localApi: GameApi = {
       nautilus: [...readNautilus()].sort()[0] ?? null,
       nautilusCount: readNautilus().length,
       compass: read<string | null>(COMPASS_KEY, null),
+      silverCompass: read<string | null>(SILVER_COMPASS_KEY, null),
       crab: [...readCrabs()].sort()[0] ?? null,
       crabCount: readCrabs().length,
       hermit: [...readHermits()].sort()[0]?.split(':')[0] ?? null,
@@ -557,9 +564,14 @@ export const localApi: GameApi = {
     return { streak, newBadges: awardStreakBadges(streak, today) };
   },
 
-  async findCompass(today) {
-    if (read<string | null>(COMPASS_KEY, null)) return false;
-    write(COMPASS_KEY, today);
+  hasCompass(metal) {
+    return !!read<string | null>(metal === 'silver' ? SILVER_COMPASS_KEY : COMPASS_KEY, null);
+  },
+
+  async findCompass(today, metal = 'gold') {
+    const key = metal === 'silver' ? SILVER_COMPASS_KEY : COMPASS_KEY;
+    if (read<string | null>(key, null)) return false;
+    write(key, today);
     return true;
   },
 

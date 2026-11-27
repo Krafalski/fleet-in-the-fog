@@ -1,7 +1,9 @@
 // The welcome card that sits over the game when today's puzzle hasn't been played yet.
 // Front: the date, "Can you find today's fleet?", ghost ships in the fog, the six ships, and Play.
 // "How to play" flips the card to the rules; "Back" flips it back. Play fades the card away.
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { api } from '../api';
+import { COMPASS_READ_MS, Compass } from '../Compass';
 import { NoteFlag } from './NoteFlag';
 import { Boat, SHIP_KINDS } from '../Boat';
 import { MODES } from '../game/game';
@@ -15,6 +17,15 @@ const GHOSTS = ['schooner', 'tug', 'junk', 'yacht'] as const;
 export function IntroModal({ today, onPlay, startOn = 'front' }: { today: string; onPlay: () => void; startOn?: 'front' | 'rules' }) {
   const [page, setPage] = useState<'front' | 'rules'>(startOn);
   const [leaving, setLeaving] = useState(false);
+  // The silver compass: keep How to play open long enough to read it, and it's yours (once).
+  const [silver, setSilver] = useState<'none' | 'new' | 'had'>(() => (api.hasCompass?.('silver') ? 'had' : 'none'));
+  useEffect(() => {
+    if (page !== 'rules' || silver !== 'none') return;
+    const timer = window.setTimeout(() => {
+      api.findCompass(today, 'silver').then((found) => setSilver(found ? 'new' : 'had'));
+    }, COMPASS_READ_MS);
+    return () => window.clearTimeout(timer);
+  }, [page, silver, today]);
 
   function play() {
     setLeaving(true);
@@ -46,7 +57,13 @@ export function IntroModal({ today, onPlay, startOn = 'front' }: { today: string
           </>
         ) : (
           <>
-            <h2 id="intro-title">How to play</h2>
+            <div className="intro__rules-head">
+              <h2 id="intro-title">How to play</h2>
+              {/* Its own spot, so finding it moves nothing: blank, then glowing, then just there. */}
+              <span className={`rules-card__compass${silver === 'new' ? ' is-new' : ''}`} aria-hidden={silver === 'none'}>
+                {silver !== 'none' && <Compass size={1} metal="silver" label="Your silver compass" />}
+              </span>
+            </div>
             <ol className="intro__rules">
               <li>A fleet of ships is hidden in the fog: {MODES.easy.slots} ships in the <b>Bay</b> (easy), {MODES.hard.slots} on the <b>Open Sea</b> (hard). To win, find which ships are in the fleet, and in which order. <b>Ships can repeat</b>: a fleet might have two of one kind, or even be all one kind.</li>
               <li>The foggy card at the top of the game is where the fleet hides. It isn't a hint: it lifts when you find the fleet.</li>
@@ -67,6 +84,9 @@ export function IntroModal({ today, onPlay, startOn = 'front' }: { today: string
               <li>Out of guesses? <b>Keep trying</b> adds 10 more rows under your old ones. Your first result is the one that counts, so it's a safe way to learn.</li>
               <li className="intro__keys">On a keyboard: <kbd>Y</kbd> <kbd>P</kbd> <kbd>R</kbd> <kbd>G</kbd> <kbd>B</kbd> <kbd>C</kbd> place ships (the first letter of each color), <kbd>←</kbd> <kbd>→</kbd> choose a spot (a letter there swaps the ship), <kbd>Enter</kbd> logs the guess, <kbd>Backspace</kbd> clears a spot.</li>
             </ol>
+            {silver === 'new' && (
+              <p className="rules-card__found" role="status"><strong>You found a silver compass!</strong> Thanks for reading. It's in your fleet now.</p>
+            )}
             {startOn === 'rules' ? (
               // Opened from the bottle during a game: one button, straight back to the game.
               <button type="button" className="primary-btn intro__play" onClick={play} autoFocus>Back to the game</button>

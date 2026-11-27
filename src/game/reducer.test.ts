@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { alreadyGuessed, boardRows, canLogGuess, newGame, reducer, totalGuesses, tryOfRow } from './reducer';
+import { alreadyGuessed, boardRows, canLogGuess, flaggedOut, newGame, reducer, totalGuesses, tryOfRow } from './reducer';
 import type { Ship } from './game';
 import type { Action, GameState } from './reducer';
 
@@ -308,5 +308,39 @@ describe('keyboard arrows', () => {
     s = reducer({ ...s, cursor: 0 }, { type: 'BACKSPACE' });
     expect(s.current).toEqual([null, 2, 3, null]);
     expect(s.cursor).toBe(0);
+  });
+});
+
+describe('✕ flags and the tray', () => {
+  const board = (guesses: Ship[][], notes: Record<string, 'exact' | 'near' | 'no'>) => ({ guesses, notes });
+
+  test('a ship greys only when every one of it in some row has a ✕', () => {
+    // coral (5) twice in row 0, one ✕: still in play ("only one coral")
+    expect(flaggedOut(board([[5, 5, 1, 2]], { '0:0': 'no' }))).toEqual([]);
+    expect(flaggedOut(board([[5, 5, 1, 2]], { '0:0': 'no', '0:1': 'no' }))).toEqual([5]);
+  });
+
+  test('a ● or ○ on a ship anywhere keeps it in play, whatever its ✕ flags say', () => {
+    const guesses: Ship[][] = [[2, 1, 0, 4, 3], [1, 1, 2, 2, 1]];
+    expect(flaggedOut(board(guesses, { '1:2': 'no' }))).toEqual([]); // row 1 has two reds, one ✕
+    expect(flaggedOut(board(guesses, { '0:0': 'no' }))).toEqual([2]); // row 0's only red has a ✕
+    expect(flaggedOut(board(guesses, { '0:0': 'no', '1:3': 'exact' }))).toEqual([]);
+    expect(flaggedOut(board(guesses, { '0:0': 'no', '1:2': 'near' }))).toEqual([]);
+  });
+
+  test('a long press greys a ship, and brings a greyed one back (long press wins over flags)', () => {
+    let s = newGame('2026-11-26', 'easy');
+    s = reducer(s, { type: 'TOGGLE_OUT', ship: 3, greyed: false });
+    expect([s.markedOut, s.markedIn]).toEqual([[3], []]);
+    s = reducer(s, { type: 'TOGGLE_OUT', ship: 3, greyed: true });
+    expect([s.markedOut, s.markedIn]).toEqual([[], [3]]);
+  });
+
+  test('Replay clears long-press marks, like the flags', () => {
+    let s = newGame('2026-11-26', 'easy');
+    s = reducer(s, { type: 'TOGGLE_OUT', ship: 0, greyed: false });
+    s = reducer(s, { type: 'TOGGLE_OUT', ship: 1, greyed: true });
+    s = reducer(s, { type: 'REPLAY' });
+    expect([s.markedOut, s.markedIn]).toEqual([[], []]);
   });
 });

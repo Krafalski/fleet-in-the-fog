@@ -1,6 +1,7 @@
 // The hidden fleet at the top. Clouds drift over it while playing; when the game ends
 // they part and fade, and the answer fades in underneath.
 import { useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
 import { Boat, SHIP_KINDS, SHIP_NAMES } from '../Boat';
 import { MODES, SHIP_COUNT } from '../game/game';
 import type { Ship } from '../game/game';
@@ -12,7 +13,21 @@ const SHAPE_CHANGE_MS = 3200;
 // The fog card is kept small so the board gets the room: its ships are drawn at this fraction of board size.
 const FOG_SCALE = 0.72;
 
-export function FogCard({ state, boatSize }: { state: GameState; boatSize: number }) {
+// How long a sighting takes to drift back into the fog.
+const SIGHTING_OUT_MS = 700;
+
+// sighting: a note (the albatross, a lobster) that comes in out of the fog and takes the card over for a moment,
+// then drifts back into the fog and the hidden ships return. The card keeps its size, so nothing else moves.
+export function FogCard({ state, boatSize, sighting = null, onSightingTap }: { state: GameState; boatSize: number; sighting?: ReactNode; onSightingTap?: () => void }) {
+  const [shownSighting, setShownSighting] = useState<ReactNode>(sighting);
+  const [leaving, setLeaving] = useState(false);
+  useEffect(() => {
+    if (sighting) { setShownSighting(sighting); setLeaving(false); return; }
+    if (!shownSighting) return;
+    setLeaving(true);
+    const t = window.setTimeout(() => { setShownSighting(null); setLeaving(false); }, SIGHTING_OUT_MS);
+    return () => window.clearTimeout(t);
+  }, [sighting]); // eslint-disable-line react-hooks/exhaustive-deps
   const { slots, ships } = MODES[state.mode];
   const randomShip = (): Ship => Math.floor(Math.random() * Math.min(ships, SHIP_COUNT));
   const over = state.status !== 'playing';
@@ -42,8 +57,8 @@ export function FogCard({ state, boatSize }: { state: GameState; boatSize: numbe
   if (state.status === 'lost') label = hidden ? 'The fleet is still out there in the fog' : 'The fog lifts. This was the fleet.';
 
   return (
-    <div className={`fog-card${lifting ? ' fog-card--lifting' : ''}`}>
-      <div className={lifting ? 'fog-reveal' : undefined}>
+    <div className={`fog-card${lifting ? ' fog-card--lifting' : ''}${shownSighting ? ' fog-card--sighting' : ''}${leaving ? ' is-leaving' : ''}`}>
+      <div className={`fog-card__fleet${lifting ? ' fog-reveal' : ''}`}>
         <p className="fog-card__label">{label}</p>
         <div className="fog-card__row">
           {Array.from({ length: slots }, (_, i) => {
@@ -63,6 +78,9 @@ export function FogCard({ state, boatSize }: { state: GameState; boatSize: numbe
           })}
         </div>
       </div>
+      {shownSighting && (
+        <div className="fog-sighting" role="status" onClick={onSightingTap} title="Tap to close">{shownSighting}</div>
+      )}
       <div className={`cloud cloud--left${lifting ? ' lifting' : ''}`} aria-hidden="true" />
       <div className={`cloud cloud--right${lifting ? ' lifting' : ''}`} aria-hidden="true" />
     </div>

@@ -580,3 +580,24 @@ describe('barnacle, starfish, sand dollar, lobsters, walruses', () => {
     expect([x.starfish.count, x.sanddollar.count]).toEqual([1, 1]);
   });
 });
+
+describe('catch-up and the silver compass', () => {
+  test('opening the game hands out boat looks already earned but never awarded', async () => {
+    await winToday('easy');
+    // Pretend the Bay paper boat look was never handed out (a boat added after the win, say).
+    const looks = JSON.parse(storage.getItem('fog:boatLooks') ?? '{}');
+    const key = Object.keys(looks)[0];
+    delete looks[key];
+    storage.setItem('fog:boatLooks', JSON.stringify(looks));
+    expect((await api.loadProgress(TODAY)).looksEarned[key]).toBe(TODAY);
+  });
+
+  test('the gold and silver compasses are found once each', async () => {
+    expect(await api.findCompass(TODAY, 'silver')).toBe(true);
+    expect(await api.findCompass(TODAY, 'silver')).toBe(false);
+    expect(api.hasCompass!('gold')).toBe(false);
+    expect(await api.findCompass(TODAY)).toBe(true);
+    const p = await api.loadProgress(TODAY);
+    expect([p.compass, p.silverCompass]).toEqual([TODAY, TODAY]);
+  });
+});
